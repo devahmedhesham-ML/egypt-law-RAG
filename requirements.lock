@@ -41,15 +41,12 @@ annotated-doc==0.0.5
     # via fastapi
 annotated-types==0.8.0
     # via pydantic
-anthropic==1.8.0
-    # via -r requirements.txt
 antlr4-python3-runtime==4.9.3
     # via
     #   hydra-core
     #   omegaconf
 anyio==4.15.1
     # via
-    #   anthropic
     #   httpx
     #   httpx-ws
     #   httpx2
@@ -211,9 +208,7 @@ distro==1.9.0
 docker==7.2.0
     # via mlflow
 docstring-parser==0.18.0
-    # via
-    #   anthropic
-    #   instructor
+    # via instructor
 dpath==2.2.0
     # via dvc
 dulwich==1.2.15
@@ -367,9 +362,7 @@ httpx-sse==0.4.3
 httpx-ws==0.9.0
     # via bentoml
 httpx2==2.13.1
-    # via
-    #   anthropic
-    #   langsmith
+    # via langsmith
 huey==3.4.0
     # via mlflow
 huggingface-hub==1.33.0
@@ -414,7 +407,6 @@ jinja2==3.1.6
     #   torch
 jiter==0.14.0
     # via
-    #   anthropic
     #   instructor
     #   openai
 jmespath==1.1.0
@@ -609,6 +601,7 @@ onnxruntime==1.30.0
     # via chromadb
 openai==2.54.0
     # via
+    #   -r requirements.txt
     #   guardrails-ai
     #   instructor
     #   langchain-openai
@@ -780,7 +773,6 @@ pycparser==3.0
     # via cffi
 pydantic==2.13.5
     # via
-    #   anthropic
     #   bentoml
     #   chromadb
     #   fastapi
@@ -869,6 +861,7 @@ python-multipart==0.0.32
     # via bentoml
 pyyaml==6.0.3
     # via
+    #   -r requirements.txt
     #   bentoml
     #   chromadb
     #   datasets
@@ -1002,7 +995,6 @@ smmap==5.0.3
     # via gitdb
 sniffio==1.3.1
     # via
-    #   anthropic
     #   langsmith
     #   openai
 sqlalchemy==2.1.1
@@ -1087,7 +1079,6 @@ typing-extensions==4.16.0
     #   aiohttp
     #   aiosignal
     #   alembic
-    #   anthropic
     #   anyio
     #   asyncssh
     #   chromadb

@@ -11,8 +11,9 @@ pyarabic>=0.6          # normalize diacritics, hamza and alef variants
 sentence-transformers>=3.0   # multilingual embedding model (Arabic + English)
 chromadb>=0.5
 
-# --- LLM (API-based; no GPU needed to start) ---
-anthropic>=0.40
+# --- LLM inference: one OpenAI client for Bedrock's OpenAI-compatible endpoint + vLLM ---
+openai>=1.50
+pyyaml>=6.0            # params.yaml
 
 # --- Track + version ---
 mlflow>=2.16           # chunking experiments: chunk_size, overlap, embedding_model, faithfulness

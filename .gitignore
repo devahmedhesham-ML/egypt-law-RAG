@@ -5,3 +5,5 @@ mlruns/
 
 # Course material, not project data
 docs/*.pdf
+*.egg-info/
+.pytest_cache/

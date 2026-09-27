@@ -1,0 +1,10 @@
+llm:
+  backend: bedrock         # bedrock | vllm
+  temperature: 0.0         # deterministic, so backends and runs are comparable
+  max_tokens: 1024
+  bedrock:                 # Bedrock's OpenAI-compatible endpoint, key: Bedrock_API_key in .env
+    model: openai.gpt-oss-120b
+    base_url: https://bedrock-mantle.eu-north-1.api.aws/v1   # overridden by OPENAI_BASE_URL
+  vllm:
+    model: Qwen/Qwen2.5-7B-Instruct-AWQ
+    base_url: http://localhost:8000/v1                        # overridden by VLLM_BASE_URL

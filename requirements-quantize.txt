@@ -1,0 +1,4 @@
+# One-off AWQ-4bit quantization of the generative model (Linux/WSL + CUDA).
+# Kept separate from requirements.txt: llmcompressor and vLLM pin conflicting torch versions.
+# Output is a quantized model directory that vLLM serves from the main venv.
+llmcompressor>=0.14

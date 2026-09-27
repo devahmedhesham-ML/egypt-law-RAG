@@ -22,7 +22,9 @@ dvc>=3.50              # version the PDF + JSON corpus, dvc.yaml stage
 bentoml>=1.3           # wraps RAG, streaming /ask
 
 # --- Evaluate + monitor ---
-ragas>=0.2             # faithfulness, context precision on >= 50 questions
+ragas>=0.4             # faithfulness, context precision on >= 50 questions
+datasets>=3.0          # ragas dep; unpinned, the resolver backtracks to an ancient 1.x that breaks on modern pyarrow
+langchain-community<0.4  # ragas imports chat_models.vertexai, removed in 0.4
 langfuse>=2.50         # trace every request
 guardrails-ai>=0.5
 scipy>=1.13            # cosine / MMD embedding drift
@@ -31,6 +33,6 @@ scipy>=1.13            # cosine / MMD embedding drift
 python-dotenv>=1.0
 pytest>=8.0            # corpus validation tests (contiguous articles, non-empty text_ar, ...)
 
-# --- GPU serving + quantization (Linux/WSL + CUDA) ---
+# --- GPU serving (Linux/WSL + CUDA) ---
+# AWQ quantization lives in requirements-quantize.txt (separate venv: its torch pin conflicts with vLLM)
 vllm>=0.10          # serves the generative model
-llmcompressor>=0.7   # AWQ-4bit quantization (successor to archived autoawq)

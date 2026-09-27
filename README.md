@@ -43,8 +43,8 @@ One OpenAI-compatible client ([src/rag/llm/](src/rag/llm/)) drives two backends,
 The model answers only from the retrieved articles and cites them inline as `[Article 492]`. Every answer is checked: any cited article that was not retrieved is flagged as a hallucination.
 
 ```bash
-# vLLM (serve venv); leave GPU memory for the embedding model
-~/venvs/egypt-law-rag-serve/bin/vllm serve Qwen/Qwen2.5-7B-Instruct-AWQ --gpu-memory-utilization 0.75 --max-model-len 8192
+# vLLM (WSL): starts the serve venv's server on :8000 with the project's flags
+scripts/serve_vllm.sh
 
 # app venv
 pytest                                        # unit tests, no GPU/AWS needed

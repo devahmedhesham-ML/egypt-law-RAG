@@ -33,6 +33,12 @@ def test_check_citations_flags_hallucinated_article():
     assert not check.ok
 
 
+def test_prompt_states_answer_language():
+    assert build_user_message("ما حكم هبة الأموال المستقبلة؟", ARTICLES).endswith("أجب باللغة العربية.")
+    assert build_user_message("How is a partnership defined?", ARTICLES).endswith("Answer in English.")
+    assert build_user_message("ما معنى partnership في المادة ٥٠٥؟", ARTICLES).endswith("أجب باللغة العربية.")
+
+
 def test_prompt_marks_repealed_articles():
     msg = build_user_message("q", ARTICLES)
     assert "[Article 60] (REPEALED)" in msg

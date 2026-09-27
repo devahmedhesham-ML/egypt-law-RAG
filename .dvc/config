@@ -1,4 +1,5 @@
 [core]
-    remote = localstore
-['remote "localstore"']
-    url = /mnt/c/Users/pc/dvc-storage/egypt-law-rag
+    remote = s3store
+['remote "s3store"']
+    url = s3://amzn-egypt-law-rag/dvc
+    region = eu-north-1

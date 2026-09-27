@@ -82,6 +82,8 @@ attrs==26.1.0
     #   jsonschema
     #   referencing
     #   sqltrie
+awscrt==0.36.0
+    # via botocore
 backoff==2.2.1
     # via langfuse
 bcrypt==5.0.0
@@ -96,6 +98,7 @@ boto3==1.43.75
     # via litellm
 botocore==1.43.75
     # via
+    #   -r requirements.txt
     #   aiobotocore
     #   boto3
     #   dvc-s3

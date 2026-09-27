@@ -32,4 +32,12 @@ uv pip compile --python-version 3.12 --python-platform x86_64-manylinux_2_28 req
 
 ## Data
 
-`data/raw/egyptian_civil_code.pdf` is tracked with DVC: git stores only the `.dvc` pointer file, and the PDF itself lives in the DVC remote.
+`data/raw/egyptian_civil_code.pdf` is tracked with DVC: git stores only the `.dvc` pointer file, and the PDF itself lives in S3 (`s3://amzn-egypt-law-rag/dvc`, eu-north-1).
+
+AWS access uses `aws login`, so no access keys are stored anywhere. Install AWS CLI v2 inside WSL, then share one login with Windows:
+
+```bash
+ln -sfn /mnt/c/Users/<you>/.aws ~/.aws   # reuse the Windows ~/.aws
+aws login                                # from Windows or WSL
+dvc pull
+```

@@ -1,0 +1,120 @@
+{
+  "source": "Sample fixture: Articles 492-510 hand-cleaned from the source PDF (pp. 64-66), plus one repealed article. Replaced automatically by data/processed/articles.json once the corpus parser exists.",
+  "articles": [
+    {
+      "article_number": 60,
+      "topic": "Repealed",
+      "text_ar": "",
+      "text_en": "",
+      "is_repealed": true
+    },
+    {
+      "article_number": 492,
+      "topic": "Gift: elements",
+      "text_ar": "تقع هبة الأموال المستقبلة باطلة.",
+      "text_en": "A gift of future property is void."
+    },
+    {
+      "article_number": 493,
+      "topic": "Gift: effects",
+      "text_ar": "إذا لم يكن الموهوب له قد تسلم الشيء الموهوب، فإن الواهب يلتزم بتسليمه إياه، وتسري في ذلك الأحكام المتعلقة بتسليم المبيع.",
+      "text_en": "When the donee has not taken possession of the thing given, the donor is under an obligation to deliver it to him. The provisions as to the delivery of a thing sold shall, in such a case, apply."
+    },
+    {
+      "article_number": 494,
+      "topic": "Gift: effects",
+      "text_ar": "(١) لا يضمن الواهب استحقاق الشيء الموهوب، إلا إذا تعمد إخفاء سبب الاستحقاق أو كانت الهبة بعوض. وفي الحالة الأولى يقدر القاضي للموهوب له تعويضاً عادلاً عما أصابه من الضرر. وفي الحالة الثانية لا يضمن الواهب الاستحقاق إلا بقدر ما أداه الموهوب له من عوض. كل هذا ما لم يتفق على غيره.\n(٢) وإذا استحق الشيء الموهوب حل الموهوب له محل الواهب فيما له من حقوق ودعاوى.",
+      "text_en": "Unless otherwise agreed, a donor is under no obligation of warranty against dispossession unless he has intentionally hidden the cause of dispossession or unless the gift has been made for valuable consideration. In the first case, the judge will award the donee equitable compensation for the prejudice that he has suffered. In the second case, the donor is only bound up to the value of the consideration paid by the donee.\nIn a case of dispossession, the donee is subrogated into the rights and actions of the donor."
+    },
+    {
+      "article_number": 495,
+      "topic": "Gift: effects",
+      "text_ar": "(١) لا يضمن الواهب خلو الشيء الموهوب من العيب.\n(٢) على أنه إذا تعمد الواهب إخفاء العيب، أو ضمن خلو الشيء الموهوب من العيوب، كان ملزماً بتعويض الموهوب له عن الضرر الذي يسببه العيب. ويكون كذلك ملزماً بالتعويض إذا كانت الهبة بعوض، على ألا يجاوز التعويض في هذه الحالة قدر ما أداه الموهوب له من هذا العوض.",
+      "text_en": "A donor does not warrant that the thing given is free of defects.\nIf, however, the donor has intentionally hidden a defect or if he has warranted that the thing donated is free of defects, he will be liable to compensate the donee for loss caused by this defect. He will also be bound to pay compensation if the gift is made for valuable consideration, provided that the amount of compensation does not exceed the value of the consideration given by the donee."
+    },
+    {
+      "article_number": 496,
+      "topic": "Gift: effects",
+      "text_ar": "لا يكون الواهب مسئولاً إلا عن فعله العمد أو خطئه الجسيم.",
+      "text_en": "A donor is only liable for his intentional acts or for his gross negligence."
+    },
+    {
+      "article_number": 497,
+      "topic": "Gift: effects",
+      "text_ar": "يلتزم الموهوب له بأداء ما اشترط عليه من عوض، سواء اشترط هذا العوض لمصلحة الواهب أم لمصلحة أجنبي أم للمصلحة العامة.",
+      "text_en": "A donee is bound to perform the consideration imposed upon him, whether such consideration is in favor of the donor, a third party or in the public interest."
+    },
+    {
+      "article_number": 498,
+      "topic": "Gift: effects",
+      "text_ar": "إذا تبين أن الشيء الموهوب أقل في القيمة من العوض المشترط، فلا يكون الموهوب له ملزماً بأن يؤدي من هذا العوض إلا بقدر قيمة الشيء الموهوب.",
+      "text_en": "If it appears that the value of the gift is less than that of the consideration imposed, the donee shall only be liable to perform the consideration to the extent of the value of the thing donated."
+    },
+    {
+      "article_number": 500,
+      "topic": "Gift: revocation",
+      "text_ar": "(١) يجوز للواهب أن يرجع في الهبة إذا قبل الموهوب له ذلك.\n(٢) فإذا لم يقبل الموهوب له جاز للواهب أن يطلب من القضاء الترخيص له في الرجوع، متى كان يستند في ذلك إلى عذر مقبول، ولم يوجد مانع من الرجوع.",
+      "text_en": "A donor may revoke a gift if the donee consents to his so doing.\nIf the donee does not consent to the revocation, the donor may apply to the court for authority to revoke the gift whenever he has reasonable grounds in support and when there is no obstacle to the revocation."
+    },
+    {
+      "article_number": 501,
+      "topic": "Gift: revocation",
+      "text_ar": "يعتبر بنوع خاص عذراً مقبولاً للرجوع في الهبة:\n(أ) أن يخل الموهوب له بما يجب عليه نحو الواهب، أو نحو أحد من أقاربه، بحيث يكون هذا الإخلال جحوداً كبيراً من جانبه.\n(ب) أن يصبح الواهب عاجزاً عن أن يوفر لنفسه أسباب المعيشة بما يتفق مع مكانته الاجتماعية، أو أن يصبح غير قادر على الوفاء بما يفرضه عليه القانون من النفقة على الغير.\n(جـ) أن يرزق الواهب بعد الهبة ولداً يظل حياً إلى وقت الرجوع، أو أن يكون للواهب ولد يظنه ميتاً وقت الهبة فإذا به حي.",
+      "text_en": "There are, in particular, reasonable grounds for the revocation of a gift:\na) if the donee has failed in his duties towards the donor or one of his relatives, and such failure constitutes serious ingratitude on his part;\nb) if the donor has become unable to maintain himself in accordance with his social position or to meet an obligation to pay alimony which he is legally bound to pay to another person;\nc) in the event of a child being born to the donor after the donation, and still being alive at the time of revocation, or if the donor had a child which he believed dead at the time of the donation, which child is discovered to be still alive."
+    },
+    {
+      "article_number": 502,
+      "topic": "Gift: revocation",
+      "text_ar": "يرفض طلب الرجوع في الهبة إذا وجد مانع من الموانع الآتية:\n(أ) إذا حصل للشيء الموهوب زيادة متصلة موجبة لزيادة قيمته، فإذا زال المانع عاد حق الرجوع.\n(ب) إذا مات أحد طرفي عقد الهبة.\n(جـ) إذا تصرف الموهوب له في الشيء الموهوب تصرفاً نهائياً، فإذا اقتصر التصرف على بعض الموهوب، جاز للواهب أن يرجع في الباقي.\n(د) إذا كانت الهبة من أحد الزوجين للآخر ولو أراد الواهب الرجوع بعد انقضاء الزوجية.\n(هـ) إذا كانت الهبة لذي رحم محرم.\n(و) إذا هلك الشيء الموهوب في يد الموهوب له، سواء كان الهلاك بفعله أو بحادث أجنبي لا يد له فيه أو بسبب الاستعمال، فإذا لم يهلك إلا بعض الشيء، جاز الرجوع في الباقي.\n(ز) إذا قدم الموهوب له عوضاً عن الهبة.\n(حـ) إذا كانت الهبة صدقة أو عملاً من أعمال البر.",
+      "text_en": "An application for the revocation of a gift shall be rejected if one of the following obstacles exists:\na) if there is an inherent increase of the thing given, involving an increase in value thereof; but if this obstacle disappears, the right of revocation is renewed;\nb) if one of the parties to the gift dies;\nc) if the donee has definitely alienated the thing given; if, however, such alienation is only partial, the donor may revoke the gift as to the part remaining;\nd) if the gift is made by one spouse to another, even if the donor wishes to revoke the gift after the dissolution of the marriage;\ne) if the gift is made for the benefit of a relative with whom marriage is prohibited;\nf) if the thing given has perished while in possession of the donee, whether by the act of the donee, by a cause beyond his control not attributable to him, or by use; if, however, the loss is partial, the revocation may be for the part remaining;\ng) if the donee has supplied valuable consideration for the gift;\nh) if the gift constitutes alms or an act of charity."
+    },
+    {
+      "article_number": 503,
+      "topic": "Gift: revocation",
+      "text_ar": "(١) يترتب على الرجوع في الهبة بالتراضي أو بالتقاضي أن تعتبر الهبة كأن لم تكن.\n(٢) ولا يرد الموهوب له الثمرات إلا من وقت الاتفاق على الرجوع، أو من وقت رفع الدعوى، وله أن يرجع بجميع ما أنفقه من مصروفات ضرورية، أما المصروفات النافعة فلا يجاوز في الرجوع بها القدر الذي زاد في قيمة الشيء الموهوب.",
+      "text_en": "A gift revoked by mutual consent or by a judgment is deemed to be null and void.\nThe donee is only liable for the restitution of the fruits as from the date of agreement of revocation or from the date of commencement of legal proceedings. He has the right to claim repayment of all necessary expenses that he has incurred and also of sums usefully spent by him but only up to the amount of any increase in value of the thing donated."
+    },
+    {
+      "article_number": 504,
+      "topic": "Gift: revocation",
+      "text_ar": "(١) إذا استولى الواهب على الشيء الموهوب، بغير التراضي أو التقاضي، كان مسئولاً قبل الموهوب له عن هلاك الشيء، سواء كان الهلاك بفعل الواهب أو بسبب أجنبي لا يد له فيه أو بسبب الاستعمال.\n(٢) أما إذا صدر الحكم بالرجوع في الهبة وهلك الشيء في يد الموهوب له بعد إعذاره بالتسليم، فيكون الموهوب له مسئولاً عن هذا الهلاك، ولو كان الهلاك بسبب أجنبي.",
+      "text_en": "If, without consent of the donee or without a decision of the court, the donor takes back the thing given, he is responsible to the donee for the loss of the thing donated whether such loss occurs from his act, from a cause beyond his control which is not attributable to him or as a result of the use of the thing.\nIf the revocation of the gift is pronounced by a judgment and the thing donated perishes while in the possession of the donee, after he has been formally summoned to hand back the thing, the donee is responsible for loss even if it resulted from a cause beyond his control."
+    },
+    {
+      "article_number": 505,
+      "topic": "Partnership: general",
+      "text_ar": "الشركة عقد بمقتضاه يلتزم شخصان أو أكثر بأن يساهم كل منهم في مشروع مالي، بتقديم حصة من مال أو من عمل، لاقتسام ما قد ينشأ عن هذا المشروع من ربح أو من خسارة.",
+      "text_en": "Partnership is a contract by which two or more persons undertake to contribute jointly in an undertaking of a pecuniary nature by the provision of contributions of property or services, with the object of sharing in the profits or the losses of the undertaking."
+    },
+    {
+      "article_number": 506,
+      "topic": "Partnership: general",
+      "text_ar": "(١) تعتبر الشركة بمجرد تكوينها شخصاً اعتبارياً، ولكن لا يحتج بهذه الشخصية على الغير إلا بعد استيفاء إجراءات النشر التي يقررها القانون.\n(٢) ومع ذلك للغير إذا لم تقم الشركة بإجراءات النشر المقررة أن يتمسك بشخصيتها.",
+      "text_en": "A partnership is deemed, by the fact of its constitution, to be a juristic person; such juristic personality is however acquired, as regards third parties, only upon completion of the formalities of publication required by law.\nThird parties may, however, if the partnership has not completed the prescribed formalities of publication, avail themselves of the juristic personality of the partnership."
+    },
+    {
+      "article_number": 507,
+      "topic": "Partnership: elements",
+      "text_ar": "(١) يجب أن يكون عقد الشركة مكتوباً وإلا كان باطلاً، وكذلك يكون باطلاً كل ما يدخل على العقد من تعديلات دون أن تستوفي الشكل الذي أفرغ فيه ذلك العقد.\n(٢) غير أن هذا البطلان لا يجوز أن يحتج به الشركاء قبل الغير، ولا يكون له أثر فيما بين الشركاء أنفسهم، إلا من وقت أن يطلب الشريك الحكم بالبطلان.",
+      "text_en": "A partnership deed must be in writing under pain of nullity. All modifications to the partnership deed are also void if they are not executed in the same form as the deed.\nSuch nullity cannot, however, be pleaded by the partners against third parties and has no effect on the relationship of the partners between themselves until a demand for such nullity has been made in court by one of the partners."
+    },
+    {
+      "article_number": 508,
+      "topic": "Partnership: elements",
+      "text_ar": "تعتبر حصص الشركاء متساوية القيمة، وأنها واردة على ملكية المال لا على مجرد الانتفاع به، ما لم يوجد اتفاق أو عرف يقضي بغير ذلك.",
+      "text_en": "In the absence of agreement or custom to the contrary, the contributions of the partners are presumed to be equal and to consist of the ownership of the property brought in and not merely of its enjoyment."
+    },
+    {
+      "article_number": 509,
+      "topic": "Partnership: elements",
+      "text_ar": "لا يجوز أن تقتصر حصة الشريك على ما يكون له من نفوذ، أو على ما يتمتع به من ثقة مالية.",
+      "text_en": "The influence or the credit of a partner cannot alone constitute his contribution."
+    },
+    {
+      "article_number": 510,
+      "topic": "Partnership: elements",
+      "text_ar": "إذا تعهد الشريك بأن يقدم حصته في الشركة مبلغاً من النقود، ولم يقدم هذا المبلغ، لزمته فوائده من وقت استحقاقه من غير حاجة إلى مطالبة قضائية أو إعذار، وذلك دون إخلال بما قد يستحق من تعويض تكميلي عند الاقتضاء.",
+      "text_en": "A partner who has undertaken to contribute a sum of money and who does not pay this sum into the partnership is liable, without recourse to legal proceedings or to any formal demand, to payment of interest from the date that his contribution fell due, apart from payment, in addition, of compensation for any loss, if such compensation is due."
+    }
+  ]
+}

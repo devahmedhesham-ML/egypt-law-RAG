@@ -26,6 +26,11 @@ def test_extract_citations_dedupes_and_normalizes():
     assert extract_citations(text) == [492, 505, 60]
 
 
+def test_extract_citations_accepts_fullwidth_brackets():
+    # Seen live from gpt-oss-120b on Bedrock.
+    assert extract_citations("لا يجوز الرجوع【Article 502】 و［Article 501］") == [502, 501]
+
+
 def test_check_citations_flags_hallucinated_article():
     check = check_citations("See [Article 492] and [Article 999].", retrieved=[492, 60])
     assert check.valid == [492]

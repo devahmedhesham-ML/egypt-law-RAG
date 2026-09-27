@@ -6,8 +6,11 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-# Tolerates Arabic-Indic digits and "Art."/"Articles" slips from smaller models.
-_CITATION = re.compile(r"\[\s*Art(?:icle)?s?\.?\s*([0-9٠-٩]+)\s*\]", re.IGNORECASE)
+# Tolerates Arabic-Indic digits, "Art."/"Articles" slips from smaller models, and the
+# full-width brackets gpt-oss sometimes emits (【Article 502】, ［Article 502］).
+_CITATION = re.compile(
+    r"[\[【［]\s*Art(?:icle)?s?\.?\s*([0-9٠-٩]+)\s*[\]】］]", re.IGNORECASE
+)
 _ARABIC_INDIC = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
 

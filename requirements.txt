@@ -22,6 +22,8 @@ botocore[crt]          # required to read `aws login` sessions (no long-lived ac
 
 # --- Serve ---
 bentoml>=1.3           # wraps RAG, streaming /ask
+fastapi>=0.115         # test console dev server (python -m rag.ui)
+uvicorn>=0.30
 
 # --- Evaluate + monitor ---
 ragas>=0.4             # faithfulness, context precision on >= 50 questions

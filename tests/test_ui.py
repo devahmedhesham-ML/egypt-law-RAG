@@ -1,0 +1,80 @@
+"""Test console API with a fake backend: no network, no GPU."""
+
+import json
+from types import SimpleNamespace as NS
+
+import pytest
+from fastapi.testclient import TestClient
+
+from rag.llm.openai_compat import OpenAICompatBackend
+from rag.ui import data, server, status
+
+
+class FakeCompletions:
+    def create(self, **req):
+        text = "هبة الأموال المستقبلة باطلة [Article 492] وانظر [Article 999]."
+        usage = NS(prompt_tokens=100, completion_tokens=12)
+        return iter([
+            NS(choices=[NS(delta=NS(content=text[:20]), finish_reason=None)], usage=None),
+            NS(choices=[NS(delta=NS(content=text[20:]), finish_reason="stop")], usage=None),
+            NS(choices=[], usage=usage),
+        ])
+
+
+@pytest.fixture
+def client(monkeypatch, tmp_path):
+    fake = OpenAICompatBackend("bedrock", "openai.gpt-oss-120b", "http://x/v1",
+                               client=NS(chat=NS(completions=FakeCompletions())))
+    monkeypatch.setattr(server, "backend_for", lambda name: fake)
+    monkeypatch.setattr(data, "FEEDBACK_PATH", tmp_path / "feedback.jsonl")
+    monkeypatch.setattr(status, "FEEDBACK_PATH", tmp_path / "feedback.jsonl")
+    # Skip live network checks (Bedrock endpoint, vLLM server).
+    monkeypatch.setattr(status, "_LIVE", [status._source_pdf, status._corpus, status._retrieval])
+    return TestClient(server.app)
+
+
+def test_index_and_static_assets_are_served(client):
+    assert "Test console" in client.get("/").text
+    assert client.get("/static/app.js").status_code == 200
+    assert client.get("/static/app.css").status_code == 200
+
+
+def test_articles_fall_back_to_sample_fixture(client):
+    body = client.get("/api/articles").json()
+    numbers = [a["article_number"] for a in body["articles"]]
+    assert body["source"] == "sample"
+    assert 492 in numbers and 505 in numbers
+    assert any(a.get("is_repealed") for a in body["articles"])
+
+
+def test_status_lists_planned_stages(client):
+    stages = {s["id"]: s for s in client.get("/api/status").json()["stages"]}
+    assert stages["retrieval"]["state"] == "planned"
+    assert stages["ragas"]["state"] == "planned"
+    assert stages["citations"]["state"] == "working"
+
+
+def test_ask_streams_deltas_then_checked_result(client):
+    res = client.post("/api/ask", json={"question": "ما حكم هبة الأموال المستقبلة؟", "backend": "bedrock", "article_numbers": [492, 505]})
+    events = [json.loads(line) for line in res.text.splitlines()]
+    assert [e["type"] for e in events] == ["start", "delta", "delta", "done"]
+    done = events[-1]
+    assert done["citations"] == {"cited": [492, 999], "valid": [492], "invalid": [999]}
+    assert done["metrics"]["input_tokens"] == 100 and done["metrics"]["stop_reason"] == "stop"
+
+
+def test_ask_rejects_unknown_articles(client):
+    res = client.post("/api/ask", json={"question": "q", "backend": "bedrock", "article_numbers": [123456]})
+    assert res.status_code == 400
+
+
+def test_feedback_roundtrip(client):
+    entry = {
+        "rating": "down", "tags": ["Irrelevant citation"], "comment": "cites 999",
+        "question": "q", "backend": "bedrock", "model": "openai.gpt-oss-120b", "answer": "a",
+        "article_numbers": [492], "cited": [492, 999], "invalid": [999], "latency_s": 0.8,
+    }
+    assert client.post("/api/feedback", json=entry).json() == {"ok": True}
+    saved = client.get("/api/feedback").json()["entries"]
+    assert len(saved) == 1 and saved[0]["tags"] == ["Irrelevant citation"] and "ts" in saved[0]
+    assert client.get("/api/feedback.jsonl").status_code == 200

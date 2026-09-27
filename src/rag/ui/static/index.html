@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Egypt Law RAG · Test console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">§</span>
+      <div>
+        <div class="brand-name">Egypt Law RAG</div>
+        <div class="brand-sub">Test console</div>
+      </div>
+    </div>
+    <nav id="nav">
+      <div class="nav-group">Try it</div>
+      <a href="#ask" data-view="ask">Ask</a>
+      <a href="#compare" data-view="compare">Compare backends</a>
+      <div class="nav-group">Pipeline</div>
+      <a href="#status" data-view="status">Status <span class="nav-meta" id="nav-status-meta"></span></a>
+      <a href="#corpus" data-view="corpus" data-stage="corpus">Corpus <span class="nav-tag"></span></a>
+      <a href="#retrieval" data-view="retrieval" data-stage="retrieval">Retrieval <span class="nav-tag"></span></a>
+      <a href="#evaluation" data-view="evaluation" data-stage="ragas">Evaluation <span class="nav-tag"></span></a>
+      <a href="#traces" data-view="traces" data-stage="tracing">Traces <span class="nav-tag"></span></a>
+      <div class="nav-group">User testing</div>
+      <a href="#feedback" data-view="feedback">Feedback log <span class="nav-meta" id="nav-feedback-meta"></span></a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="foot-label">Backends</div>
+      <div id="backend-pills" class="backend-pills"></div>
+    </div>
+  </aside>
+
+  <main>
+    <!-- Ask -->
+    <section class="view" id="view-ask">
+      <header class="view-head">
+        <h1>Ask</h1>
+        <p class="lede">Ask a question, choose which articles the model may use, and check the streamed answer and its citations.</p>
+      </header>
+      <div class="ask-grid">
+        <div class="stack">
+          <div class="card">
+            <label class="field-label" for="ask-q">Question</label>
+            <textarea id="ask-q" dir="auto" rows="3" placeholder="اكتب سؤالك هنا… or ask in English"></textarea>
+            <div class="examples" data-for="ask-q"></div>
+            <div class="field-label">Model</div>
+            <div class="segmented" id="ask-backend" role="radiogroup" aria-label="Model"></div>
+            <details class="advanced">
+              <summary>Generation settings</summary>
+              <div class="settings">
+                <label>Temperature <output id="temp-out">0.0</output>
+                  <input type="range" id="temp" min="0" max="1" step="0.1" value="0">
+                </label>
+                <label>Max tokens
+                  <input type="number" id="max-tokens" min="64" max="4096" step="64" value="1024">
+                </label>
+              </div>
+            </details>
+            <div class="actions">
+              <button class="btn primary" id="ask-run">Ask <kbd>Ctrl ↵</kbd></button>
+              <button class="btn" id="ask-stop" hidden>Stop</button>
+            </div>
+          </div>
+          <div class="context-slot" data-slot="ask"></div>
+        </div>
+        <div class="stack">
+          <div class="results-head">
+            <h2>Answers</h2>
+            <button class="btn ghost small" id="ask-clear">Clear</button>
+          </div>
+          <div id="ask-results" class="results">
+            <div class="empty">
+              <div class="empty-title">No answers yet</div>
+              <p>Pick an example question or write your own. Each answer shows its citations, whether they came from the context, latency and token use.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Compare -->
+    <section class="view" id="view-compare" hidden>
+      <header class="view-head">
+        <h1>Compare backends</h1>
+        <p class="lede">Send the same question and context to Bedrock and to the self-hosted vLLM model at once.</p>
+      </header>
+      <div class="compare-top">
+        <div class="card">
+          <label class="field-label" for="cmp-q">Question</label>
+          <textarea id="cmp-q" dir="auto" rows="3" placeholder="اكتب سؤالك هنا… or ask in English"></textarea>
+          <div class="examples" data-for="cmp-q"></div>
+          <div class="actions">
+            <button class="btn primary" id="cmp-run">Run both <kbd>Ctrl ↵</kbd></button>
+            <button class="btn" id="cmp-stop" hidden>Stop</button>
+          </div>
+        </div>
+        <div class="context-slot" data-slot="compare"></div>
+      </div>
+      <div class="compare-cols" id="cmp-cols">
+        <div class="empty">
+          <div class="empty-title">Nothing compared yet</div>
+          <p>Both answers stream side by side, followed by a summary of latency, tokens and citation checks.</p>
+        </div>
+      </div>
+      <div id="cmp-summary"></div>
+    </section>
+
+    <!-- Status -->
+    <section class="view" id="view-status" hidden>
+      <header class="view-head row">
+        <div>
+          <h1>Pipeline status</h1>
+          <p class="lede">Every stage of the handbook's Project 2, live-checked where possible. Planned stages are listed so nothing missing goes unnoticed.</p>
+        </div>
+        <button class="btn" id="status-refresh">Refresh</button>
+      </header>
+      <div id="status-summary"></div>
+      <div id="status-groups"></div>
+    </section>
+
+    <!-- Corpus -->
+    <section class="view" id="view-corpus" hidden>
+      <header class="view-head">
+        <h1>Corpus</h1>
+        <p class="lede">Browse the articles the console can send as context.</p>
+      </header>
+      <div id="corpus-banner"></div>
+      <input type="search" id="corpus-filter" class="search" placeholder="Search by article number, topic, Arabic or English text">
+      <div id="corpus-list" class="corpus-list"></div>
+    </section>
+
+    <!-- Planned views, filled from app.js -->
+    <section class="view" id="view-retrieval" hidden></section>
+    <section class="view" id="view-evaluation" hidden></section>
+    <section class="view" id="view-traces" hidden></section>
+
+    <!-- Feedback -->
+    <section class="view" id="view-feedback" hidden>
+      <header class="view-head row">
+        <div>
+          <h1>Feedback log</h1>
+          <p class="lede">Every rating testers give in Ask and Compare, stored in <code>data/feedback/feedback.jsonl</code>.</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn" id="feedback-refresh">Refresh</button>
+          <a class="btn" href="/api/feedback.jsonl" id="feedback-download">Download JSONL</a>
+        </div>
+      </header>
+      <div id="feedback-stats"></div>
+      <div class="filter-row" id="feedback-filter" role="tablist">
+        <button class="chip active" data-filter="all">All</button>
+        <button class="chip" data-filter="up">Helpful</button>
+        <button class="chip" data-filter="down">Not helpful</button>
+      </div>
+      <div id="feedback-list"></div>
+    </section>
+  </main>
+</div>
+
+<!-- Context picker: one instance, moved into the active view's slot -->
+<div class="card context" id="context-picker">
+  <div class="card-head">
+    <div>
+      <div class="card-title">Context articles</div>
+      <div class="card-sub" id="ctx-count"></div>
+    </div>
+    <div class="ctx-quick" id="ctx-quick"></div>
+  </div>
+  <div class="notice planned">
+    <strong>Retrieval isn't built yet.</strong> You choose which articles the model sees.
+    Leave the relevant one out to check that the model declines instead of guessing.
+  </div>
+  <input type="search" id="ctx-filter" class="search small" placeholder="Filter by number, topic or text">
+  <div class="ctx-list" id="ctx-list"></div>
+  <div class="ctx-source" id="ctx-source"></div>
+</div>
+
+<!-- Article drawer -->
+<div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-labelledby="drawer-title">
+  <div class="drawer-head">
+    <h3 id="drawer-title"></h3>
+    <button class="btn ghost small" id="drawer-close" aria-label="Close">Close</button>
+  </div>
+  <div id="drawer-body"></div>
+</aside>
+
+<div class="toast" id="toast" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

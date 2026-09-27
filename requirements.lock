@@ -243,7 +243,9 @@ entrypoints==0.4
 faker==37.12.0
     # via guardrails-ai
 fastapi==0.141.1
-    # via mlflow-skinny
+    # via
+    #   -r requirements.txt
+    #   mlflow-skinny
 fastuuid==0.14.0
     # via litellm
 filelock==4.0.4
@@ -1144,6 +1146,7 @@ uuid-utils==0.17.1
     #   langsmith
 uvicorn==0.54.0
     # via
+    #   -r requirements.txt
     #   bentoml
     #   chromadb
     #   mlflow-skinny

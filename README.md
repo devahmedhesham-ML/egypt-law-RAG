@@ -52,6 +52,25 @@ python scripts/llm_smoke.py --backend bedrock # real call: 3 questions, streamed
 python scripts/llm_smoke.py --backend vllm
 ```
 
+## Test console
+
+A local web UI for manual and user testing (`src/rag/ui/`):
+
+```bash
+python -m rag.ui          # app venv, from the repo root -> http://localhost:7860
+```
+
+| View | What it does |
+|---|---|
+| Ask | Streamed answer from Bedrock or vLLM; you pick the context articles; citations are clickable and checked against the context |
+| Compare | Same question and context on both backends side by side, with a latency/tokens/citations summary |
+| Status | Live health of every pipeline stage; planned stages are listed so gaps stay visible |
+| Corpus | Browse the articles the console can use (a 19-article sample until the corpus parser exists) |
+| Retrieval, Evaluation, Traces | Planned: what each will test, what it needs first, and a preview of its layout |
+| Feedback log | Every tester rating (right/wrong, reason tags, comment) from `data/feedback/feedback.jsonl`, downloadable |
+
+When a stage lands, update its entry in [src/rag/ui/status.py](src/rag/ui/status.py) so testers see it.
+
 ## Data
 
 `data/raw/egyptian_civil_code.pdf` is tracked with DVC: git stores only the `.dvc` pointer file, and the PDF itself lives in S3 (`s3://amzn-egypt-law-rag/dvc`, eu-north-1).

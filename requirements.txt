@@ -1,0 +1,36 @@
+# Project 2 — Arabic Legal Document Q&A (RAG)
+# Source: MLOps Practitioner Handbook, pp. 64-66
+
+# --- Corpus building: PDF -> structured JSON (column-aware, RTL-safe) ---
+pymupdf>=1.24          # positional extraction to split the bilingual two-column layout
+arabic-reshaper>=3.0   # fix disconnected Arabic glyphs
+python-bidi>=0.5       # fix reversed RTL text
+pyarabic>=0.6          # normalize diacritics, hamza and alef variants
+
+# --- Embeddings + vector DB ---
+sentence-transformers>=3.0   # multilingual embedding model (Arabic + English)
+chromadb>=0.5
+
+# --- LLM (API-based; no GPU needed to start) ---
+anthropic>=0.40
+
+# --- Track + version ---
+mlflow>=2.16           # chunking experiments: chunk_size, overlap, embedding_model, faithfulness
+dvc>=3.50              # version the PDF + JSON corpus, dvc.yaml stage
+
+# --- Serve ---
+bentoml>=1.3           # wraps RAG, streaming /ask
+
+# --- Evaluate + monitor ---
+ragas>=0.2             # faithfulness, context precision on >= 50 questions
+langfuse>=2.50         # trace every request
+guardrails-ai>=0.5
+scipy>=1.13            # cosine / MMD embedding drift
+
+# --- Utilities + tests ---
+python-dotenv>=1.0
+pytest>=8.0            # corpus validation tests (contiguous articles, non-empty text_ar, ...)
+
+# --- GPU serving + quantization (Linux/WSL + CUDA) ---
+vllm>=0.10          # serves the generative model
+llmcompressor>=0.7   # AWQ-4bit quantization (successor to archived autoawq)

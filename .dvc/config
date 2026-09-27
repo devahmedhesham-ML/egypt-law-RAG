@@ -1,0 +1,4 @@
+[core]
+    remote = localstore
+['remote "localstore"']
+    url = /mnt/c/Users/pc/dvc-storage/egypt-law-rag

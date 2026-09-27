@@ -3,3 +3,4 @@
 ['remote "s3store"']
     url = s3://amzn-egypt-law-rag/dvc
     region = eu-north-1
+    allow_anonymous_login = true

@@ -21,7 +21,7 @@ for n in "" -serve -quantize; do
 done
 cp .env.example .env   # fill in keys
 source ~/venvs/egypt-law-rag/bin/activate
-dvc pull               # fetch the source PDF
+dvc pull               # fetch the source PDF (public bucket, no AWS account needed)
 ```
 
 The `requirements*.txt` files state intent. After editing one, regenerate its lock file:
@@ -34,10 +34,10 @@ uv pip compile --python-version 3.12 --python-platform x86_64-manylinux_2_28 req
 
 `data/raw/egyptian_civil_code.pdf` is tracked with DVC: git stores only the `.dvc` pointer file, and the PDF itself lives in S3 (`s3://amzn-egypt-law-rag/dvc`, eu-north-1).
 
-AWS access uses `aws login`, so no access keys are stored anywhere. Install AWS CLI v2 inside WSL, then share one login with Windows:
+The `dvc/` prefix of the bucket is publicly readable, so anyone can `dvc pull` without an AWS account. Only the owner can write (`dvc push`), using `aws login`: install AWS CLI v2 inside WSL and share one login with Windows:
 
 ```bash
 ln -sfn /mnt/c/Users/<you>/.aws ~/.aws   # reuse the Windows ~/.aws
-aws login                                # from Windows or WSL
-dvc pull
+aws login
+dvc push
 ```

@@ -16,7 +16,7 @@ anthropic>=0.40
 
 # --- Track + version ---
 mlflow>=2.16           # chunking experiments: chunk_size, overlap, embedding_model, faithfulness
-dvc>=3.50              # version the PDF + JSON corpus, dvc.yaml stage
+dvc[s3]>=3.50          # version the PDF + JSON corpus, dvc.yaml stage; S3 remote
 
 # --- Serve ---
 bentoml>=1.3           # wraps RAG, streaming /ask
@@ -33,6 +33,6 @@ scipy>=1.13            # cosine / MMD embedding drift
 python-dotenv>=1.0
 pytest>=8.0            # corpus validation tests (contiguous articles, non-empty text_ar, ...)
 
-# --- GPU serving (Linux/WSL + CUDA) ---
-# AWQ quantization lives in requirements-quantize.txt (separate venv: its torch pin conflicts with vLLM)
-vllm>=0.10          # serves the generative model
+# Not here on purpose (separate venvs, each pins its own torch):
+#   requirements-serve.txt    -> vLLM server (the app talks to it over HTTP)
+#   requirements-quantize.txt -> llmcompressor, one-off AWQ-4bit quantization

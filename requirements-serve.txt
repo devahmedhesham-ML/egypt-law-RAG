@@ -1,0 +1,4 @@
+# vLLM inference server for the generative model (Linux/WSL + CUDA).
+# Runs as its own process (`vllm serve <model>`, OpenAI-compatible API);
+# the RAG app calls it over HTTP, so it doesn't share the app's torch pin.
+vllm>=0.10

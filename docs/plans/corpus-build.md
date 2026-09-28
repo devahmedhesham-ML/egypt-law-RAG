@@ -39,12 +39,47 @@ The promulgation law on page 1 sits above the table (y < 277), so it's excluded 
 | Source text typos | `٥١ أكتوبر` (should be 15) | Kept faithful; listed in the build report |
 | Repealed ranges given as notes | p7, p53 | Stub records with `is_repealed: true`, never deleted |
 
+## Hierarchy: numbers + titles in both languages
+Heading rows hold the keyword + number and the title in both cells (EN left, AR right). Every level is stored as a **number** plus an **English and Arabic title**.
+
+| Level | English keyword | Arabic keyword | Number from |
+|---|---|---|---|
+| part | `FIRST PART` | القسم | ordinal word (FIRST → 1) |
+| book | `BOOK I` | الكتاب | Roman numeral |
+| chapter | `CHAPTER I` / `Chapter IV` | الباب | Roman numeral |
+| section | `SECTION I` / `Section II.` | الفصل | Roman numeral |
+| topic | `1.` `2-` `1.Sale…` | `١-` or `أولا` | EN number, else AR number (EN sometimes unnumbered: "Associations" = `٣- الجمعيات`) |
+| subtopic | unnumbered (`Consent:`, `Obligations of the Vendor`) | unnumbered | title only |
+
+Rules found by dumping all 221 heading rows:
+- **Articles 1–88 (Preliminary Chapter)** have **no part, book or chapter**, only section 1–3 (+ topic). Part 1 starts after Article 88.
+- A keyword may sit alone with its title in the next row (`Section II` p46 → title p47) or on the same line (`Section I The Right of Ownership in General`).
+- A new level resets all levels below it.
+- Wrapped English titles ("…without an / Owner") are joined when the Arabic cell has fewer lines; otherwise the second line is the next level (topic + subtopic in one row, e.g. `1. Elements of Contracts / Consent:`).
+- **Part 2 is added from the official structure.** The PDF has no "SECOND PART" heading, but the official text puts Books III–IV under **القسم الثاني: الحقوق العينية** (Real Rights), per [qadaya.net part 3](https://qadaya.net/?p=6646) and [part 4](https://qadaya.net/?p=6648). So from `BOOK III` on: `part_number = 2`, `part_title_en = "Real Rights"`, `part_title_ar = "الحقوق العينية"`. The build report records this as a correction not present in the PDF.
+
+Prototype over the whole PDF: 1,087 articles tagged; no level ends up with a number but no title. Articles 89, 147, 418, 492 and 1149 come out as expected.
+
 ## Record schema (`data/processed/articles.json`)
 ```json
 {
+  "article_number": 89,
+  "part_number": 1, "part_title_en": "Obligations or Personal Rights", "part_title_ar": "الالتزامات أو الحقوق الشخصية",
+  "book_number": 1, "book_title_en": "Obligations Generally", "book_title_ar": "الالتزامات بوجه عام",
+  "chapter_number": 1, "chapter_title_en": "Sources of Obligations", "chapter_title_ar": "مصادر الالتزام",
+  "section_number": 1, "section_title_en": "Contracts", "section_title_ar": "العقد",
+  "topic_number": 1, "topic_title_en": "Elements of Contracts", "topic_title_ar": "أركان العقد",
+  "subtopic_title_en": "Consent", "subtopic_title_ar": "الرضاء",
+  "…": "text_ar, text_en, is_repealed, repeal_note, source_pages, citation as below"
+}
+```
+Example of a Preliminary-Chapter article (no part/book/chapter):
+```json
+{
   "article_number": 44,
-  "part": "Preliminary Chapter", "book": null, "chapter": null,
-  "section": "Persons", "topic": "Individuals", "subtopic": null,
+  "part_number": null, "book_number": null, "chapter_number": null,
+  "section_number": 2, "section_title_en": "Persons", "section_title_ar": "الأشخاص",
+  "topic_number": 1, "topic_title_en": "Individuals", "topic_title_ar": "الشخص الطبيعي",
   "text_ar": "(١) كل شخص بلغ سن الرشد متمتعا بقواه العقلية، ولم يحجر عليه، يكون كامل الأهلية لمباشرة حقوقه المدنية.\n(٢) وسن الرشد هى إحدى وعشرون سنة ميلادية كاملة.",
   "text_en": "All persons attaining majority in possession of their mental faculties and not under legal disability, have full legal capacity to exercise their civil rights. The majority of a person is fixed at twenty one years completed in accordance with the Gregorian calendar.",
   "is_repealed": false, "repeal_note": null,
@@ -60,12 +95,12 @@ The promulgation law on page 1 sits above the table (y < 277), so it's excluded 
 ## Chunking: one bilingual chunk per article
 Chunk text (built at ingestion, not stored in the corpus):
 ```
-Preliminary Chapter > Persons > Individuals
+Section 2 Persons | الفصل الثاني الأشخاص > Topic 1 Individuals | الشخص الطبيعي
 Article 44 | مادة 44
 <text_ar>
 <text_en>
 ```
-Metadata: `article_number`, `part` … `subtopic`, `is_repealed`, `source_pages`.
+Metadata: `article_number`, every `*_number` and `*_title_en`/`*_title_ar`, `is_repealed`, `source_pages`.
 
 One vector per article means the top 10 are always 10 distinct articles. Repealed articles are indexed with their note, so "What does Article 60 say?" retrieves "repealed" instead of a hallucination.
 

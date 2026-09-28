@@ -67,7 +67,7 @@ Reused:
 - the console's `rag.ui.data.load_articles()`, which already prefers `data/processed/articles.json`;
 - the `rag.ui.status._corpus()` stage, which flips to "working" when the file exists.
 
-`arabic-reshaper` / `python-bidi` turn out to be unnecessary: position-based rebuild replaces them. Flag this to the user; don't remove them in this task.
+`arabic-reshaper` / `python-bidi` turn out to be unnecessary: position-based rebuild replaces them. They stay in `requirements.txt` until a separate cleanup decides otherwise.
 
 ## Core code
 The extraction logic and the regexes below ran in the in-memory prototype. The `parse.py` excerpt is a condensed sketch of the prototype's loop, with the fixes for the defects it exposed folded in.

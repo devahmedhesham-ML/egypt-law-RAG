@@ -253,6 +253,9 @@ input[type="range"] { accent-color: var(--accent); }
 .answer-who { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .answer-who strong { font-weight: 600; }
 .answer-model { color: var(--muted); font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.answer-tags { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.trace-link { font-size: 12px; font-weight: 600; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.trace-link:hover { text-decoration: underline; }
 .answer-q { padding: 12px 14px 0; color: var(--muted); font-size: 14px; }
 .answer-body { padding: 10px 14px 14px; min-height: 44px; overflow-wrap: anywhere; }
 .answer-body p { margin: 0 0 8px; unicode-bidi: plaintext; text-align: start; }

@@ -2,6 +2,7 @@
 
 articles.json → checks (you decide on warnings) → one bilingual chunk per article → GPU embedding
 with as many replicas as fit safely → Chroma at data/index/chroma → smoke queries → index_report.json.
+Traced in Langfuse as one `index-corpus` trace with a span per step.
 """
 
 from __future__ import annotations
@@ -17,9 +18,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
+from langfuse import propagate_attributes
 from rich.console import Console
 from rich.table import Table
 
+from rag import tracing
 from rag.corpus.build import print_issues, write_json
 from rag.corpus.issues import Issue, warning
 from rag.corpus.validate import validate_records
@@ -74,6 +77,23 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--cpu", action="store_true", help="embed on CPU")
     args = ap.parse_args(argv)
 
+    lf = tracing.client()
+    try:
+        with lf.start_as_current_observation(
+            as_type="span", name="index-corpus",
+            input={"corpus": ccfg["output"], "model": cfg["model"], "yes": args.yes, "replicas": args.replicas,
+                   "max_replicas": args.max_replicas, "tokens_per_batch": args.tokens_per_batch, "cpu": args.cpu},
+        ) as root, propagate_attributes(trace_name="index-corpus", tags=["batch", "ingest"],
+                                        metadata=tracing.str_metadata(model=cfg["model"])):
+            code = _index(args, cfg, ccfg, lf, root)
+            if code:
+                root.update(level="WARNING" if code == 3 else "ERROR", status_message=f"exit code {code}")
+            return code
+    finally:
+        lf.flush()  # a batch job exits right after: send the trace first
+
+
+def _index(args, cfg: dict, ccfg: dict, lf, root) -> int:
     console = Console()
     started = time.perf_counter()
     articles_path = REPO_ROOT / ccfg["output"]
@@ -83,8 +103,10 @@ def main(argv: list[str] | None = None) -> int:
     records = json.loads(articles_path.read_text(encoding="utf-8"))
 
     # 1) checks on the corpus, plus the build's layout warnings
-    issues = validate_records(records, ccfg)
-    issues += report_warnings(REPO_ROOT / ccfg["report"], articles_path, {i.code for i in issues})
+    with lf.start_as_current_observation(as_type="span", name="check-corpus", input={"records": len(records)}) as span:
+        issues = validate_records(records, ccfg)
+        issues += report_warnings(REPO_ROOT / ccfg["report"], articles_path, {i.code for i in issues})
+        span.update(output=_issue_counts(issues))
 
     # 2) chunks, and whether any would be truncated by the model
     chunks = build_chunks(records, cfg["normalize_arabic"])
@@ -107,40 +129,62 @@ def main(argv: list[str] | None = None) -> int:
 
     # 3) the gate: warnings are shown, the person decides
     n_warnings = sum(i.level == "warning" for i in issues)
+    lf.score_current_trace(name="corpus_warnings", value=n_warnings, data_type="NUMERIC",
+                           comment=", ".join(f"{k} {v}" for k, v in _issue_counts(issues)["warnings"].items()) or None)
     print_issues(console, [i for i in issues if i.level == "warning"])
     if not gate(n_warnings, yes=args.yes, stop_on_warning=args.stop_on_warning, interactive=sys.stdin.isatty()):
         console.print(f"[yellow]Stopped before embedding ({n_warnings} warnings). Review them, then rerun "
                       "(add --yes to continue past them).")
+        root.update(output={"stopped_at": "warning gate", "warnings": n_warnings})
         return 3
 
     # 4) embed
-    embedder = GpuEmbedder(cfg["model"], tokens_per_batch=args.tokens_per_batch, max_replicas=args.max_replicas,
-                           margin_gb=cfg["vram_margin_gb"], max_seq_len=cfg["max_chunk_tokens"],
-                           replicas=args.replicas, force_cpu=args.cpu, log=console.print)
-    smoke_texts = [query_text(q, cfg["normalize_arabic"]) for q, _ in SMOKE_QUERIES]
-    vectors, query_vectors, stats = embedder.run([c.embed_text for c in chunks], tokens, smoke_texts)
+    with lf.start_as_current_observation(
+        as_type="embedding", name="embed-chunks", model=cfg["model"],
+        input={"chunks": len(chunks), "tokens": sum(tokens), "smoke_queries": len(SMOKE_QUERIES)},
+        model_parameters={"tokens_per_batch": args.tokens_per_batch, "max_seq_len": cfg["max_chunk_tokens"]},
+    ) as span:
+        embedder = GpuEmbedder(cfg["model"], tokens_per_batch=args.tokens_per_batch, max_replicas=args.max_replicas,
+                               margin_gb=cfg["vram_margin_gb"], max_seq_len=cfg["max_chunk_tokens"],
+                               replicas=args.replicas, force_cpu=args.cpu, log=console.print)
+        smoke_texts = [query_text(q, cfg["normalize_arabic"]) for q, _ in SMOKE_QUERIES]
+        vectors, query_vectors, stats = embedder.run([c.embed_text for c in chunks], tokens, smoke_texts)
+        span.update(output={"vectors": int(vectors.shape[0]), "dimensions": int(vectors.shape[1])},
+                    usage_details={"input": sum(tokens)}, metadata=stats.to_dict())
 
     # 5) write Chroma
     index_dir = REPO_ROOT / cfg["index_dir"]
     name = collection_name(cfg["collection"], cfg["model"])
     corpus_sha = hashlib.sha256(articles_path.read_bytes()).hexdigest()
-    count = write_index(index_dir, name, chunks, vectors, {
-        "embedding_model": cfg["model"], "normalize_arabic": cfg["normalize_arabic"],
-        "corpus_sha256": corpus_sha, "built_at": datetime.now(UTC).isoformat(timespec="seconds")})
+    with lf.start_as_current_observation(as_type="span", name="write-index",
+                                         input={"index_dir": cfg["index_dir"], "collection": name}) as span:
+        count = write_index(index_dir, name, chunks, vectors, {
+            "embedding_model": cfg["model"], "normalize_arabic": cfg["normalize_arabic"],
+            "corpus_sha256": corpus_sha, "built_at": datetime.now(UTC).isoformat(timespec="seconds")})
+        span.update(output={"count": count})
 
     # 6) smoke queries: expected article on top, 10 distinct articles
     smoke = []
     st = Table(title="Smoke queries", title_justify="left")
     for col in ("query", "expected", "top 3 (score)", "rank", "distinct/10"):
         st.add_column(col)
-    for (question, expected), hits in zip(SMOKE_QUERIES, search(index_dir, name, query_vectors, k=10)):
-        numbers = [h["article_number"] for h in hits]
-        rank = numbers.index(expected) + 1 if expected in numbers else None
-        smoke.append({"query": question, "expected": expected, "rank": rank, "top": numbers,
-                      "scores": [h["score"] for h in hits]})
-        ok = "[green]" if rank == 1 else "[yellow]" if rank else "[red]"
-        st.add_row(question, str(expected), ", ".join(f"{h['article_number']} ({h['score']:.2f})" for h in hits[:3]),
-                   f"{ok}{rank or '—'}[/]", str(len(set(numbers))))
+    with lf.start_as_current_observation(as_type="evaluator", name="run-smoke-queries",
+                                         input=[{"query": q, "expected": e} for q, e in SMOKE_QUERIES]) as span:
+        for (question, expected), hits in zip(SMOKE_QUERIES, search(index_dir, name, query_vectors, k=10)):
+            numbers = [h["article_number"] for h in hits]
+            rank = numbers.index(expected) + 1 if expected in numbers else None
+            smoke.append({"query": question, "expected": expected, "rank": rank, "top": numbers,
+                          "scores": [h["score"] for h in hits]})
+            ok = "[green]" if rank == 1 else "[yellow]" if rank else "[red]"
+            st.add_row(question, str(expected), ", ".join(f"{h['article_number']} ({h['score']:.2f})" for h in hits[:3]),
+                       f"{ok}{rank or '—'}[/]", str(len(set(numbers))))
+        top1 = sum(s["rank"] == 1 for s in smoke)
+        span.update(output=[{"query": s["query"], "expected": s["expected"], "rank": s["rank"], "top3": s["top"][:3]}
+                            for s in smoke],
+                    **({"level": "WARNING", "status_message": f"top-1 on {top1}/{len(smoke)}"}
+                       if top1 < len(smoke) else {}))
+        lf.score_current_trace(name="smoke_top1_rate", value=top1 / len(smoke), data_type="NUMERIC",
+                               comment=f"{top1}/{len(smoke)} smoke queries return the expected article first")
     console.print(st)
 
     # 7) report and summary
@@ -158,6 +202,8 @@ def main(argv: list[str] | None = None) -> int:
         "elapsed_s": round(time.perf_counter() - started, 2),
     }
     write_json(REPO_ROOT / cfg["report"], report)
+    root.update(output={"count": count, "smoke_top1": report["smoke_top1"], "warnings": n_warnings,
+                        "elapsed_s": report["elapsed_s"], "replicas": stats.replicas, "device": stats.device})
     e = stats
     s = Table(title="Embedding", show_header=False, title_justify="left")
     s.add_row("Device", f"{e.device} {e.gpu or ''} · {e.replicas} replica{'s' if e.replicas != 1 else ''} "
@@ -173,6 +219,14 @@ def main(argv: list[str] | None = None) -> int:
     if sys.stdout.isatty():
         print("\a", end="", flush=True)
     return 0
+
+
+def _issue_counts(issues: list[Issue]) -> dict:
+    counts: dict[str, dict[str, int]] = {"warnings": {}, "notes": {}}
+    for i in issues:
+        bucket = counts["warnings" if i.level == "warning" else "notes"]
+        bucket[i.code] = bucket.get(i.code, 0) + 1
+    return counts
 
 
 if __name__ == "__main__":

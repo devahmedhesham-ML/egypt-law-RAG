@@ -23,6 +23,7 @@ class LLMResult:
     output_tokens: int
     latency_s: float
     stop_reason: str
+    reasoning: str = ""  # reasoning models (gpt-oss) return their thinking separately from the answer
 
 
 class LLMError(RuntimeError):

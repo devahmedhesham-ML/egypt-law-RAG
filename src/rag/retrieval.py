@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+from rag import tracing
 from rag.ingest.chunks import query_text
 from rag.ingest.embed import gpu_memory
 from rag.ingest.store import collection_name, search
@@ -75,24 +76,48 @@ class Retriever:
     def _load(self) -> Callable[[str], np.ndarray]:
         with self._lock:
             if self._encode is None:
-                from sentence_transformers import SentenceTransformer
+                with tracing.client().start_as_current_observation(
+                    as_type="span", name="load-embedding-model", input={"model": self.cfg["model"]},
+                ) as span:  # first question only: shows why that retrieval is slow
+                    from sentence_transformers import SentenceTransformer
 
-                mem = gpu_memory()
-                self.device = "cuda" if mem and mem.free_mb >= MIN_FREE_GPU_MB else "cpu"
-                kwargs = {}
-                if self.device == "cuda":
-                    import torch
+                    mem = gpu_memory()
+                    self.device = "cuda" if mem and mem.free_mb >= MIN_FREE_GPU_MB else "cpu"
+                    kwargs = {}
+                    if self.device == "cuda":
+                        import torch
 
-                    kwargs["model_kwargs"] = {"dtype": torch.float16}
-                model = SentenceTransformer(self.cfg["model"], device=self.device, **kwargs)
-                normalize = self.cfg["normalize_arabic"]
-                self._encode = lambda q: model.encode(
-                    [query_text(q, normalize)], prompt_name="query", normalize_embeddings=True)
+                        kwargs["model_kwargs"] = {"dtype": torch.float16}
+                    model = SentenceTransformer(self.cfg["model"], device=self.device, **kwargs)
+                    normalize = self.cfg["normalize_arabic"]
+                    self._encode = lambda q: model.encode(
+                        [query_text(q, normalize)], prompt_name="query", normalize_embeddings=True)
+                    span.update(output={"device": self.device},
+                                metadata={"free_gpu_mb": mem.free_mb if mem else None,
+                                          "min_free_gpu_mb": MIN_FREE_GPU_MB})
         return self._encode
 
     def retrieve(self, question: str, k: int = 5) -> Retrieval:
+        """Traced as `retrieve-articles` (retriever) with an `embed-question` (embedding) step inside."""
         started = time.perf_counter()
-        named = numbers_in_question(question, self.first, self.last)
-        vector = self._load()(question)
-        semantic = self._searcher(np.asarray(vector, dtype=np.float32), k + len(named))
-        return Retrieval(merge_hits(named, semantic, k), self.device, round(time.perf_counter() - started, 3))
+        lf = tracing.client()
+        with lf.start_as_current_observation(
+            as_type="retriever", name="retrieve-articles", input={"question": question, "top_k": k},
+            metadata={"collection": self.collection, "embedding_model": self.cfg["model"]},
+        ) as span:
+            named = numbers_in_question(question, self.first, self.last)
+            encode = self._load()
+            with lf.start_as_current_observation(
+                as_type="embedding", name="embed-question", model=self.cfg["model"], input=question,
+                metadata={"device": self.device, "prompt": "query"},
+            ) as emb:
+                vector = np.asarray(encode(question), dtype=np.float32)
+                emb.update(output={"dimensions": int(vector.shape[-1])})
+            semantic = self._searcher(vector, k + len(named))
+            hits = merge_hits(named, semantic, k)
+            latency = round(time.perf_counter() - started, 3)
+            span.update(
+                output=[{"article_number": h.article_number, "score": h.score, "by_number": h.by_number} for h in hits],
+                metadata={"named_in_question": named, "device": self.device, "latency_s": latency},
+            )
+        return Retrieval(hits, self.device, latency)

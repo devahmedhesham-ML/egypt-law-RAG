@@ -2,6 +2,7 @@
 
 PDF → table rows (parallel) → articles + hierarchy → checks → data/processed/articles.json
 and data/processed/corpus_report.json. Warnings never stop the build; review them before indexing.
+Traced in Langfuse as one `build-corpus` trace (extract-pages, validate-records) with a build_warnings score.
 """
 
 from __future__ import annotations
@@ -18,10 +19,12 @@ from pathlib import Path
 
 import pymupdf
 import yaml
+from langfuse import propagate_attributes
 from rich.console import Console
 from rich.table import Table
 from tqdm import tqdm
 
+from rag import tracing
 from rag.corpus.extract import iter_pages
 from rag.corpus.issues import Issue, info, warning
 from rag.corpus.parse import CorpusParser, to_records
@@ -107,6 +110,21 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--strict", action="store_true", help="exit with status 1 if there are warnings")
     args = ap.parse_args(argv)
 
+    lf = tracing.client()
+    try:
+        with lf.start_as_current_observation(
+            as_type="span", name="build-corpus",
+            input={"pdf": args.pdf, "pages": args.pages or "all", "workers": args.workers, "strict": args.strict},
+        ) as root, propagate_attributes(trace_name="build-corpus", tags=["batch", "corpus"]):
+            code = _build(args, cfg, lf, root)
+            if code:
+                root.update(level="ERROR", status_message=f"exit code {code}")
+            return code
+    finally:
+        lf.flush()  # a batch job exits right after: send the trace first
+
+
+def _build(args, cfg: dict, lf, root) -> int:
     console = Console()
     started = time.perf_counter()
     pdf = REPO_ROOT / args.pdf
@@ -120,25 +138,34 @@ def main(argv: list[str] | None = None) -> int:
     parser = CorpusParser(parse_ranges(cfg.get("repealed", [])), cfg.get("part_corrections"))
     issues: list[Issue] = []
     tables = 0
-    bar = tqdm(iter_pages(str(pdf), pages, cfg["line_merge_pt"], args.workers), total=len(pages),
-               unit="page", desc="Extracting", dynamic_ncols=True)
-    for result in bar:
-        tables += result.tables
-        if result.tables == 0:
-            issues.append(warning("NO_TABLE", "no table found: this page's text is not in the corpus", page=result.page))
-        if len(result.outside_text) > 3 and result.page != 1:  # page 1 opens with the promulgation law
-            issues.append(info("TEXT_OUTSIDE_TABLE",
-                               f"{len(result.outside_text)} chars outside the table grid, read in position order: "
-                               f"'{result.outside_text[:60]}'", page=result.page))
-        parser.feed_page(result)
-        bar.set_postfix(articles=len(parser.articles), notes=len(parser.notes),
-                        warnings=sum(i.level == "warning" for i in parser.issues + issues))
-    bar.close()
+    with lf.start_as_current_observation(as_type="span", name="extract-pages",
+                                         input={"pages": [pages[0], pages[-1]], "workers": args.workers}) as span:
+        bar = tqdm(iter_pages(str(pdf), pages, cfg["line_merge_pt"], args.workers), total=len(pages),
+                   unit="page", desc="Extracting", dynamic_ncols=True)
+        for result in bar:
+            tables += result.tables
+            if result.tables == 0:
+                issues.append(warning("NO_TABLE", "no table found: this page's text is not in the corpus",
+                                      page=result.page))
+            if len(result.outside_text) > 3 and result.page != 1:  # page 1 opens with the promulgation law
+                issues.append(info("TEXT_OUTSIDE_TABLE",
+                                   f"{len(result.outside_text)} chars outside the table grid, read in position order: "
+                                   f"'{result.outside_text[:60]}'", page=result.page))
+            parser.feed_page(result)
+            bar.set_postfix(articles=len(parser.articles), notes=len(parser.notes),
+                            warnings=sum(i.level == "warning" for i in parser.issues + issues))
+        bar.close()
+        issues += parser.finish()
+        records, record_issues = to_records(parser)
+        issues += record_issues
+        span.update(output={"pages": len(pages), "tables": tables, "records": len(records),
+                            "repeal_notes": len(parser.notes)})
 
-    issues += parser.finish()
-    records, record_issues = to_records(parser)
-    issues += record_issues
-    issues += validate_records(records, cfg, full=args.pages is None)
+    with lf.start_as_current_observation(as_type="span", name="validate-records",
+                                         input={"records": len(records), "full": args.pages is None}) as span:
+        found = validate_records(records, cfg, full=args.pages is None)
+        issues += found
+        span.update(output=dict(Counter(f"{i.level}:{i.code}" for i in found)))
 
     out = REPO_ROOT / args.out
     write_json(out, records)
@@ -168,6 +195,14 @@ def main(argv: list[str] | None = None) -> int:
         "elapsed_s": round(time.perf_counter() - started, 2),
     }
     write_json(REPO_ROOT / args.report, report)
+    n_warn = report["counts"]["warnings"]
+    lf.score_current_trace(name="build_warnings", value=n_warn, data_type="NUMERIC",
+                           comment=", ".join(f"{code} {v['count']}" for code, v in report["issues_by_code"].items()
+                                             if v["level"] == "warning") or None)
+    root.update(output={"records": report["counts"]["records"], "live": report["counts"]["live"],
+                        "repealed": report["counts"]["repealed"], "warnings": n_warn,
+                        "elapsed_s": report["elapsed_s"]},
+                **({"level": "WARNING", "status_message": f"{n_warn} warnings to review"} if n_warn else {}))
     summarize(console, report, issues, out.relative_to(REPO_ROOT))
     if sys.stdout.isatty():
         print("\a", end="", flush=True)

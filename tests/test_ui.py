@@ -94,7 +94,22 @@ def test_feedback_roundtrip(client):
         "question": "q", "backend": "bedrock", "model": "openai.gpt-oss-120b", "answer": "a",
         "article_numbers": [492], "cited": [492, 999], "invalid": [999], "latency_s": 0.8,
     }
-    assert client.post("/api/feedback", json=entry).json() == {"ok": True}
+    assert client.post("/api/feedback", json=entry).json() == {"ok": True, "scored": False}
     saved = client.get("/api/feedback").json()["entries"]
     assert len(saved) == 1 and saved[0]["tags"] == ["Irrelevant citation"] and "ts" in saved[0]
     assert client.get("/api/feedback.jsonl").status_code == 200
+
+
+def test_feedback_on_a_trace_becomes_langfuse_scores(client, monkeypatch):
+    scores = []
+    monkeypatch.setattr(server.tracing, "client", lambda: NS(create_score=lambda **kw: scores.append(kw)))
+    monkeypatch.setattr(server.tracing, "enabled", lambda: True)
+    entry = {
+        "rating": "down", "tags": ["Wrong conclusion", "Too long"], "comment": "wrong article",
+        "question": "q", "backend": "vllm", "model": "m", "answer": "a", "article_numbers": [492],
+        "cited": [492], "invalid": [], "trace_id": "abc123",
+    }
+    assert client.post("/api/feedback", json=entry).json() == {"ok": True, "scored": True}
+    assert [(s["name"], s["value"]) for s in scores] == [
+        ("tester_rating", "wrong"), ("tester_issue", "Wrong conclusion"), ("tester_issue", "Too long")]
+    assert all(s["trace_id"] == "abc123" and s["data_type"] == "CATEGORICAL" for s in scores)

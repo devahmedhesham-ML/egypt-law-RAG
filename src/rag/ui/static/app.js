@@ -72,7 +72,21 @@ const state = {
   feedbackFilter: 'all',
   retrieve: false, // true once the index exists: each question searches it for its context
   topK: 5,
+  traces: [], // Langfuse traces started from this tab, newest first
 };
+
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+const SESSION_ID = `console-${newId()}`; // one tab = one Langfuse session
+
+function rememberTrace(kind, question, backend, evt) {
+  if (!evt.trace_id) return;
+  state.traces.unshift({ kind, question, backend, id: evt.trace_id, url: evt.trace_url, at: new Date() });
+  if (location.hash === '#traces') renderTracesView();
+}
+
+const traceLink = (url) => (url
+  ? h('a', { class: 'trace-link', href: url, target: '_blank', rel: 'noopener', title: 'Open this trace in Langfuse' }, 'Trace ↗')
+  : null);
 
 const EXAMPLES = [
   { tag: 'Arabic', q: 'ما حكم هبة الأموال المستقبلة؟', note: 'Expected: void, Article 492.' },
@@ -355,7 +369,7 @@ function feedbackBox(result) {
     }));
   const comment = h('textarea', { dir: 'auto', rows: 2, placeholder: 'Optional: what was right or wrong? e.g. correct article, wrong conclusion' });
   const save = h('button', { class: 'btn primary small', type: 'button' }, 'Save feedback');
-  const saved = h('span', { class: 'fb-saved', hidden: true }, '✓ Saved to the feedback log');
+  const saved = h('span', { class: 'fb-saved', hidden: true });
   const more = h('div', { class: 'fb-more', hidden: true }, tagRow, comment, h('div', { class: 'fb-row' }, save, saved));
 
   const choose = (r) => {
@@ -371,7 +385,7 @@ function feedbackBox(result) {
     const d = result.done;
     save.disabled = true;
     try {
-      await api('/api/feedback', {
+      const res = await api('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -387,8 +401,10 @@ function feedbackBox(result) {
           invalid: d.citations.invalid,
           latency_s: d.metrics.latency_s,
           view: result.view,
+          trace_id: result.traceId,
         }),
       });
+      saved.textContent = res.scored ? '✓ Saved to the feedback log and scored on the Langfuse trace' : '✓ Saved to the feedback log';
       saved.hidden = false;
       [upBtn, downBtn, comment, ...tagRow.children].forEach((n) => (n.disabled = true));
       refreshFeedback();
@@ -404,6 +420,7 @@ function createAnswerCard({ backend, question, articleNumbers, view, showQuestio
   const b = state.config.backends[backend];
   const contextDetails = h('details', { class: 'context-sent', open: retrieving });
   const badge = h('span', { class: 'badge neutral' }, 'Waiting');
+  const traceSlot = h('span', { class: 'answer-trace' });
   const body = h('div', { class: 'answer-body' }, h('div', { class: 'thinking' }, h('span', { class: 'spinner' }), 'Waiting for the first tokens…'));
   const checkSlot = h('div');
   const metrics = h('div', { class: 'metrics', hidden: true });
@@ -411,7 +428,7 @@ function createAnswerCard({ backend, question, articleNumbers, view, showQuestio
   const card = h('article', { class: 'answer-card', dataset: { context: articleNumbers.join(',') } },
     h('div', { class: 'answer-head' },
       h('div', { class: 'answer-who' }, h('strong', {}, b.label), h('span', { class: 'answer-model' }, b.model)),
-      badge),
+      h('div', { class: 'answer-tags' }, traceSlot, badge)),
     showQuestion ? h('div', { class: 'answer-q', dir: 'auto' }, question) : null,
     body, checkSlot, metrics, feedbackSlot,
     contextDetails);
@@ -431,7 +448,7 @@ function createAnswerCard({ backend, question, articleNumbers, view, showQuestio
 
   renderContext(articleNumbers, null, null);
   let text = '';
-  const result = { backend, question, articleNumbers, view, text: '', done: null };
+  const result = { backend, question, articleNumbers, view, text: '', done: null, traceId: null };
   const setBadge = (cls, label) => { badge.className = `badge ${cls}`; badge.textContent = label; };
   const renderText = (cites, streaming) => {
     body.className = `answer-body${isArabic(text) ? ' is-ar' : ''}`;
@@ -442,7 +459,12 @@ function createAnswerCard({ backend, question, articleNumbers, view, showQuestio
     card,
     result,
     finished: false,
-    start() { setBadge('partial', 'Streaming'); },
+    start(evt) {
+      setBadge('partial', 'Streaming');
+      result.traceId = evt.trace_id || null;
+      traceSlot.replaceChildren(traceLink(evt.trace_url) || '');
+      rememberTrace(view, question, backend, evt);
+    },
     retrieved(evt) {
       const numbers = evt.hits.filter((x) => x.in_corpus).map((x) => x.article_number);
       result.articleNumbers = numbers;
@@ -534,7 +556,8 @@ async function runAsk() {
   if (askCtrl) return;
   const question = $('#ask-q').value.trim();
   if (!question) { $('#ask-q').focus(); toast('Write a question first.'); return; }
-  const payload = { question, backend: state.backend, ...contextPayload(), ...generationSettings() };
+  const payload = { question, backend: state.backend, ...contextPayload(), ...generationSettings(),
+    view: 'ask', session_id: SESSION_ID };
   const ui = createAnswerCard({ backend: payload.backend, question, articleNumbers: payload.article_numbers,
     view: 'ask', retrieving: state.retrieve });
   const results = $('#ask-results');
@@ -555,7 +578,7 @@ async function runCompare() {
   if (cmpCtrl) return;
   const question = $('#cmp-q').value.trim();
   if (!question) { $('#cmp-q').focus(); toast('Write a question first.'); return; }
-  const ctx = contextPayload();
+  const ctx = { ...contextPayload(), view: 'compare', session_id: SESSION_ID, group_id: `compare-${newId()}` };
   const nums = ctx.article_numbers;
   const cols = $('#cmp-cols');
   cols.replaceChildren();
@@ -834,10 +857,11 @@ function mockTraces() {
       h('span', { class: 'card-sub' }, a),
       h('span', { class: 'card-sub' }, b));
   return h('div', { class: 'trace-tree' },
-    line('ask', 'trace', 0, 'question, answer', '— s'),
-    line('retrieve-articles', 'retriever', 1, 'top-k articles', '— s'),
-    line('generate-answer', 'generation', 1, '— → — tokens', '— s'),
-    line('check-citations', 'span', 1, 'valid / invalid', '— s'));
+    line('answer-question', 'span', 0, 'question → answer, cited articles', 'session, tags'),
+    line('retrieve-articles', 'retriever', 1, 'top-k articles with scores', 'latency'),
+    line('embed-question', 'embedding', 2, 'Qwen3-Embedding-0.6B', 'device'),
+    line('generate-answer', 'generation', 1, 'prompt → answer, tokens, reasoning', 'time to first token'),
+    line('check-citations', 'evaluator', 1, 'cited / outside context', 'scores'));
 }
 
 const PLANNED = {
@@ -887,14 +911,15 @@ async function runSearch() {
   let res;
   try {
     res = await api('/api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, k: Number($('#ret-k').value) }) });
+      body: JSON.stringify({ question, k: Number($('#ret-k').value), session_id: SESSION_ID }) });
   } catch (e) {
     out.replaceChildren(h('div', { class: 'error-box' }, e.message));
     return;
   }
+  rememberTrace('search', question, null, res);
   const best = Math.max(...res.hits.map((x) => x.score ?? 0), 0.01);
   out.replaceChildren(
-    h('div', { class: 'card-sub', style: 'margin-bottom:8px' }, `${plural(res.hits.length, 'article')} in ${res.latency_s.toFixed(2)} s · embedding on ${res.device}`),
+    h('div', { class: 'card-sub', style: 'margin-bottom:8px' }, `${plural(res.hits.length, 'article')} in ${res.latency_s.toFixed(2)} s · embedding on ${res.device} `, traceLink(res.trace_url)),
     ...res.hits.map((x, i) => {
       const a = state.byNumber.get(x.article_number) || {};
       return h('div', { class: 'ret-hit' },
@@ -928,9 +953,38 @@ function renderRetrievalView() {
   );
 }
 
+function renderTracesView() {
+  const base = state.config?.langfuse_url;
+  const list = state.traces.length
+    ? h('table', { class: 'summary-table' },
+      h('thead', {}, h('tr', {}, h('th', {}, 'Time'), h('th', {}, 'Kind'), h('th', {}, 'Question'), h('th', {}, 'Backend'), h('th', {}, ''))),
+      h('tbody', {}, state.traces.map((t) => h('tr', {},
+        h('td', {}, t.at.toLocaleTimeString()),
+        h('td', {}, t.kind),
+        h('td', { dir: 'auto' }, t.question.length > 90 ? `${t.question.slice(0, 90)}…` : t.question),
+        h('td', {}, t.backend || '—'),
+        h('td', {}, traceLink(t.url) || h('span', { class: 'card-sub' }, t.id))))))
+    : h('div', { class: 'empty' }, h('div', { class: 'empty-title' }, 'No traces from this tab yet'),
+      h('div', { class: 'card-sub' }, 'Ask a question or run a search; each one appears here with a link to its trace.'));
+  $('#view-traces').replaceChildren(
+    h('header', { class: 'view-head' },
+      h('h1', {}, 'Traces ', h('span', { class: 'badge working' }, 'Live')),
+      h('p', { class: 'lede' }, 'Every answer, search, index build and corpus build is a Langfuse trace. This tab is one session: ',
+        h('code', {}, SESSION_ID), '.')),
+    h('div', { class: 'card' },
+      h('div', { class: 'card-title' }, 'What each answer trace holds'),
+      mockTraces(),
+      h('p', { class: 'stage-detail', style: 'margin-top:10px' },
+        'Scores: citations_outside_context and answer_has_citations on every answer; tester_rating and tester_issue from the feedback box.',
+        base ? h('span', {}, ' Project: ', h('a', { href: base, target: '_blank', rel: 'noopener' }, base)) : null)),
+    h('div', { class: 'card' }, h('div', { class: 'card-title' }, 'This tab'), list),
+  );
+}
+
 function renderPlanned() {
   for (const [view, p] of Object.entries(PLANNED)) {
     if (view === 'retrieval' && state.articleSource === 'corpus') continue; // the real inspector replaces it
+    if (view === 'traces' && stageState('tracing') === 'working') { renderTracesView(); continue; }
     const s = state.stageById.get(p.stage);
     const live = s?.state === 'working';
     const extra = view === 'traces' && state.config?.langfuse_url

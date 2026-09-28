@@ -79,6 +79,7 @@ class OpenAICompatBackend:
             output_tokens=r.usage.completion_tokens,
             latency_s=time.perf_counter() - start,
             stop_reason=r.choices[0].finish_reason or "",
+            reasoning=_reasoning(r.choices[0].message),
         )
 
     def stream(
@@ -86,6 +87,7 @@ class OpenAICompatBackend:
     ) -> Iterator[str | LLMResult]:
         start = time.perf_counter()
         parts: list[str] = []
+        thinking: list[str] = []
         input_tokens = output_tokens = 0
         stop = ""
         try:
@@ -100,6 +102,8 @@ class OpenAICompatBackend:
             for chunk in chunks:
                 if chunk.choices:
                     choice = chunk.choices[0]
+                    if piece := _reasoning(choice.delta):
+                        thinking.append(piece)
                     if choice.delta.content:
                         parts.append(choice.delta.content)
                         yield choice.delta.content
@@ -117,4 +121,15 @@ class OpenAICompatBackend:
             output_tokens=output_tokens,
             latency_s=time.perf_counter() - start,
             stop_reason=stop,
+            reasoning="".join(thinking),
         )
+
+
+def _reasoning(message) -> str:
+    """Thinking text from a message or stream delta: vLLM and Bedrock use reasoning_content or reasoning."""
+    extra = getattr(message, "model_extra", None) or {}
+    for name in ("reasoning_content", "reasoning"):
+        value = getattr(message, name, None) or extra.get(name)
+        if isinstance(value, str) and value:
+            return value
+    return ""

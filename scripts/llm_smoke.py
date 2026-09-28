@@ -9,7 +9,11 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 
+from langfuse import propagate_attributes
+
+from rag import tracing
 from rag.llm import AnswerResult, LLMError, answer_stream, get_backend
 from rag.llm.factory import load_llm_params
 
@@ -46,25 +50,37 @@ def main() -> int:
     print(f"backend={backend.name} model={backend.model}\n")
 
     failed = False
-    for q in QUESTIONS:
-        print(f"Q: {q}\nA: ", end="", flush=True)
-        try:
-            for item in answer_stream(
-                backend, q, ARTICLES, max_tokens=params["max_tokens"], temperature=params["temperature"]
+    lf = tracing.client()
+    session = f"smoke-{backend.name}-{time.strftime('%Y%m%d-%H%M%S')}"  # the run's traces, grouped
+    try:
+        for q in QUESTIONS:  # one answer-question trace per question
+            print(f"Q: {q}\nA: ", end="", flush=True)
+            with lf.start_as_current_observation(as_type="span", name="answer-question",
+                                                 input={"question": q}) as root, propagate_attributes(
+                trace_name="answer-question", session_id=session, tags=["smoke", backend.name],
+                metadata=tracing.str_metadata(backend=backend.name, context_mode="fixed"),
             ):
-                if isinstance(item, AnswerResult):
-                    r = item
-                else:
-                    print(item, end="", flush=True)
-        except LLMError as e:
-            print(f"\nERROR: {e}")
-            return 1
-        c = r.citations
-        print(
-            f"\n   citations={c.cited} invalid={c.invalid} | tokens in/out={r.llm.input_tokens}/"
-            f"{r.llm.output_tokens} | {r.llm.latency_s:.1f}s | stop={r.llm.stop_reason}\n"
-        )
-        failed |= not c.ok
+                try:
+                    for item in answer_stream(
+                        backend, q, ARTICLES, max_tokens=params["max_tokens"], temperature=params["temperature"]
+                    ):
+                        if isinstance(item, AnswerResult):
+                            r = item
+                        else:
+                            print(item, end="", flush=True)
+                except LLMError as e:
+                    root.update(level="ERROR", status_message=str(e))
+                    print(f"\nERROR: {e}")
+                    return 1
+                root.update(output={"answer": r.text, "cited_articles": r.citations.cited})
+            c = r.citations
+            print(
+                f"\n   citations={c.cited} invalid={c.invalid} | tokens in/out={r.llm.input_tokens}/"
+                f"{r.llm.output_tokens} | {r.llm.latency_s:.1f}s | stop={r.llm.stop_reason}\n"
+            )
+            failed |= not c.ok
+    finally:
+        lf.flush()
     print("FAIL: hallucinated citations" if failed else "OK: all citations are from the provided articles")
     return int(failed)
 

@@ -34,7 +34,7 @@ uvicorn>=0.30
 ragas>=0.4             # faithfulness, context precision on >= 50 questions
 datasets>=3.0          # ragas dep; unpinned, the resolver backtracks to an ancient 1.x that breaks on modern pyarrow
 langchain-community<0.4  # ragas imports chat_models.vertexai, removed in 0.4
-langfuse>=2.50         # trace every request
+langfuse>=4.15         # traces every request: retrieval, generation, checks, feedback scores
 guardrails-ai>=0.5
 scipy>=1.13            # cosine / MMD embedding drift
 

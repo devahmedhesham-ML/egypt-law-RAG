@@ -94,10 +94,29 @@ python -m rag.ui          # app venv, from the repo root -> http://localhost:786
 | Status | Live health of every pipeline stage; planned stages are listed so gaps stay visible |
 | Corpus | All 1,149 articles with their bilingual hierarchy and source pages, the build's warnings, and a "Random 20" eyeball check (a 19-article sample until the corpus is built) |
 | Retrieval | Search the index directly: ranked articles with similarity scores, hierarchy and text |
-| Evaluation, Traces | Planned: what each will test, what it needs first, and a preview of its layout |
-| Feedback log | Every tester rating (right/wrong, reason tags, comment) from `data/feedback/feedback.jsonl`, downloadable |
+| Traces | Every answer and search from this tab, with a link to its Langfuse trace (one tab = one Langfuse session) |
+| Evaluation | Planned: what it will test, what it needs first, and a preview of its layout |
+| Feedback log | Every tester rating (right/wrong, reason tags, comment) from `data/feedback/feedback.jsonl`, downloadable; ratings are also scored on the answer's trace |
 
 When a stage lands, update its entry in [src/rag/ui/status.py](src/rag/ui/status.py) so testers see it.
+
+## Tracing (Langfuse)
+
+Set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL` in `.env` (see `.env.example`); without them, or
+with `LANGFUSE_TRACING_ENABLED=false` (set by the tests), tracing is a no-op. Configuration lives in
+[src/rag/tracing.py](src/rag/tracing.py): environment `development` unless `LANGFUSE_TRACING_ENVIRONMENT` is set, and
+the git commit as the release.
+
+| Trace | Steps (observation type) | Scores |
+|---|---|---|
+| `answer-question` (console Ask/Compare, `scripts/llm_smoke.py`) | `retrieve-articles` (retriever) → `embed-question` (embedding), `generate-answer` (generation: prompt, model, tokens, time to first token, reasoning), `check-citations` (evaluator) | `citations_outside_context`, `answer_has_citations`, `tester_rating`, `tester_issue` |
+| `search-articles` (Retrieval view) | `retrieve-articles` → `embed-question`; `load-embedding-model` on the first search | |
+| `index-corpus` (`python -m rag.ingest`) | `check-corpus`, `embed-chunks` (embedding, token usage), `write-index`, `run-smoke-queries` (evaluator) | `corpus_warnings`, `smoke_top1_rate` |
+| `build-corpus` (`python -m rag.corpus.build`) | `extract-pages`, `validate-records` | `build_warnings` |
+
+Console traces carry the tab's session id and tags (`ask`/`compare`, backend, context mode); the two traces of one
+Compare run share a `group_id` in their metadata. Errors (e.g. an expired Bedrock key) are ERROR-level; a Stop press is a
+WARNING with the partial answer kept. Every answer card links to its trace.
 
 ## Data
 

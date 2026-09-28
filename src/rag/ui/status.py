@@ -115,16 +115,33 @@ def _vllm() -> Stage:
     return Stage("llm_vllm", "Generation", title, WORKING, f"Serving on {base_url}.")
 
 
+def _tracing() -> Stage:
+    from rag import tracing
+
+    title = "Langfuse tracing"
+    if not tracing.enabled():
+        return Stage("tracing", "Observability", title, OFFLINE,
+                     "No LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY in .env (or LANGFUSE_TRACING_ENABLED=false).",
+                     "Add the project keys and LANGFUSE_BASE_URL to .env.")
+    host = os.environ.get("LANGFUSE_BASE_URL") or os.environ.get("LANGFUSE_HOST") or "Langfuse cloud"
+    try:
+        ok = tracing.client().auth_check()
+    except Exception as e:  # noqa: BLE001
+        return Stage("tracing", "Observability", title, OFFLINE, f"Auth check against {host} failed: {e}")
+    if not ok:
+        return Stage("tracing", "Observability", title, OFFLINE, f"{host} rejected the keys.", "Check the keys in .env.")
+    return Stage("tracing", "Observability", title, WORKING,
+                 f"Sending to {host} ({os.environ.get('LANGFUSE_TRACING_ENVIRONMENT', 'default')}). Every answer, search, "
+                 "index and corpus build is a trace; citation checks and tester ratings are scores.")
+
+
 def _static() -> list[Stage]:
     feedback_n = sum(1 for _ in FEEDBACK_PATH.open(encoding="utf-8")) if FEEDBACK_PATH.exists() else 0
-    langfuse = "Keys found in .env; " if os.environ.get("LANGFUSE_PUBLIC_KEY") else "No keys in .env yet; "
     return [
         Stage("citations", "Generation", "Citation check", WORKING, "Flags any cited article that was not in the context."),
         Stage("streaming", "Generation", "Streaming answers", WORKING, "Token-by-token streaming with usage and latency."),
         Stage("serve", "Serving", "BentoML /ask", PLANNED,
               "Production API with streaming. The console talks to its own dev server meanwhile.", "TASKS: Serve"),
-        Stage("tracing", "Observability", "Langfuse tracing", PLANNED,
-              langfuse + "retriever and generation spans not wired yet.", "TASKS: Langfuse tracing"),
         Stage("feedback", "Observability", "Tester feedback", WORKING,
               f"{feedback_n} ratings recorded in data/feedback/feedback.jsonl."),
         Stage("mlflow", "Evaluation", "MLflow experiments", PLANNED,
@@ -138,7 +155,7 @@ def _static() -> list[Stage]:
     ]
 
 
-_LIVE: list[Callable[[], Stage]] = [_source_pdf, _corpus, _index, _retrieval, _bedrock, _vllm]
+_LIVE: list[Callable[[], Stage]] = [_source_pdf, _corpus, _index, _retrieval, _bedrock, _vllm, _tracing]
 
 
 def collect_status() -> list[dict]:

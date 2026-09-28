@@ -1,59 +1,97 @@
-# Plan: Civil Code PDF → one JSON record per article (DVC stage + validation)
+# Plan: Civil Code PDF → one record and one chunk per article
 
-Status: proposed, not implemented.
+Status: proposed, not implemented. Revised after testing on PDF pages 1–11.
 
 ## Context
-Handbook Step 0 for Project 2: the PDF is raw input, not the corpus. Every later stage depends on a structured, citable corpus: retrieval, the `/ask` citations, RAGAS, and the test console (which switches from its 19-article sample to `data/processed/articles.json` automatically). To ground the design, the pipeline was prototyped **in memory against the real PDF** (read-only, nothing written).
+Handbook Step 0 for Project 2: the PDF is raw input, not the corpus. Every later stage depends on a structured, citable corpus: retrieval, `/ask` citations, RAGAS, and the test console (which switches from its 19-article sample to `data/processed/articles.json` automatically).
 
-**Prototype result:** 1,149/1,149 article numbers accounted for (1,088 EN + 1,091 AR + 56 repealed), no gaps. Article 492 comes out verbatim. Article 147 matches the handbook's example schema.
+Two requirements drive this revision:
+1. **One chunk per article, Arabic and English together.** The top 10 retrieved results must be 10 different articles, not 5 articles each returned twice (once per language).
+2. **The PDF is a table.** Each row holds one article: English in the left cell, Arabic in the right, with ruled lines between rows. The row is the article boundary.
 
-## What the PDF actually does (evidence from probing)
+## Extraction: table rows, not text markers
+`page.find_tables()` finds one 2-column table per page (column split at x≈298, rows bounded by horizontal rules). Each row is one of:
+
+| Row kind | How it's recognized | What happens |
+|---|---|---|
+| Article | English cell starts with a line that is exactly `Article N` | new record |
+| Heading | all lines bold (`FIRST PART`, `BOOK I`, `CHAPTER I`, `SECTION II`, `1. Elements of Contracts`, `Consent:`) | updates the hierarchy |
+| Continuation | first row on a page, no `Article N`, not bold | appended to the previous article (page break) |
+| Repeal note | `Articles 54-80 have been repealed…` / `Articles 389-417 repealed` | flagged stub records for the whole range |
+
+The promulgation law on page 1 sits above the table (y < 277), so it's excluded without any special rule.
+
+### Tested on pages 1–11 (prototype, in memory)
+- 112 records (Articles 1–112): 85 live, 27 repealed (54–80), **no gaps**.
+- Arabic article number agrees with the English one on **all 85** live articles.
+- **All 7 page-split articles stitched correctly**: 6 (p1→2), 20, 42, 83, 91, 98, 104 (p10→11).
+- Articles 43 and 44 match the PDF word for word, including Arabic paragraph markers `(١) (٢) (٣)`.
+- Repeal stubs carry the note ("…by Presidential Decree.", two-line note joined) and the section they sit in.
+
+### PDF pitfalls and fixes (found by probing the whole file)
 | Pitfall | Evidence | Fix |
 |---|---|---|
-| Two columns (EN left, AR right), but some text blocks span both | blocks with x0=36 → x1=559 | Assign each **span** by its x-centre vs page midline, never by block |
-| Fonts separate the languages | EN = Calibri, AR = ArialMT; headings `*-Bold` | Bold = heading signal; font = cross-check |
-| Lam-alef ligatures garbled by PyMuPDF | `األموال` for `الأموال`, `إال` for `إلا`; the alef is a **zero-width** char placed before the lam | Swap zero-width alef-variant + `ل` → `ل` + alef (geometric rule, so the definite article `ال` is untouched) |
-| Digit order inconsistent (Word writes some numbers visually, some logically) | `٢٩٤` for 492; `٥١ أكتوبر` for 15 | Rebuild Arabic text from char **x-positions**: letters right→left, digit runs left→right, over the whole visual line (numbers can be split across spans: `مادة ٠١ ٦` = 601) |
-| Mirrored and offset brackets | `مادة ( ١` + `(` 2pt lower; `(١ …) (` | Merge spans within 3.5pt vertically; normalize `(n)` markers; strip stray brackets |
-| Cross-references look like headings | `Article 444.` wrapped onto its own line | Article heading = a span that is **exactly** `Article N` (no trailing text or period), detected before line merging |
+| Lam-alef ligatures garbled | `األموال` for `الأموال`; the alef is a **zero-width** char before the lam | Swap zero-width alef-variant + `ل` → `ل` + alef (geometric, so the definite article `ال` is untouched) |
+| Digit order inconsistent | `٢٩٤` for 492; numbers split across spans (`٠١ ٦` = 601) | Rebuild each Arabic line from char **x-positions**: letters right→left, digit runs left→right |
+| Mirrored, offset brackets | `مادة ( ١` + `(` 2pt lower | Merge chars within 3.5pt vertically; normalize `(n)`, `(أ)` markers; strip stray brackets |
+| Cross-references look like headings | `Article 444.` wrapped onto its own line | Heading must be exactly `Article N`, no trailing text or period |
 | Source typos | `rticle 452`, `Article1022` | `^A?rticle\s*(\d+)$` |
-| Promulgation law on p.1 has its own "مادة ١/٢" | untranslated, above `نصوص القانون المدنى` | Arabic stream starts after that heading |
-| Repealed ranges given as notes, not headings | p7 `* Articles 54-80 have been repealed by Presidential Decree.`; p53 `Articles 389-417 repealed` | Parse notes → flagged stub records (don't delete); note lines never enter article text |
-| Heading hierarchy with inconsistent case | `FIRST PART`, `BOOK I`, `CHAPTER I`, `SECTION II`/`Section I`, `1. Elements of Contracts`, `Consent:` | State machine: part → book → chapter → section → topic → subtopic; before `FIRST PART` = "Preliminary Chapter" |
+| Source text typos | `٥١ أكتوبر` (should be 15) | Kept faithful; listed in the build report |
+| Repealed ranges given as notes | p7, p53 | Stub records with `is_repealed: true`, never deleted |
 
-Remaining defects the prototype showed:
-- `(١)(` bracket leftovers;
-- Article 54 body = "Decree." (tail of a two-line note);
-- repealed stubs lack hierarchy;
-- 9 EN/AR mismatches (explained above: split digits, merged heading lines).
-
-All are covered by the fixes in the table. Validation fails the build if any recur.
-
-## Record schema (handbook schema, extended)
+## Record schema (`data/processed/articles.json`)
 ```json
 {
-  "article_number": 492,
-  "part": "Obligations or Personal Rights", "book": "Specific Contracts",
-  "chapter": "Contracts as Regards Ownership", "section": "Gifts",
-  "topic": "Elements of a Gift", "subtopic": null,
-  "text_ar": "تقع هبة الأموال المستقبلة باطلة.",
-  "text_en": "A gift of future property is void.",
-  "text_ar_normalized": "تقع هبة الاموال المستقبلة باطلة.",
+  "article_number": 44,
+  "part": "Preliminary Chapter", "book": null, "chapter": null,
+  "section": "Persons", "topic": "Individuals", "subtopic": null,
+  "text_ar": "(١) كل شخص بلغ سن الرشد متمتعا بقواه العقلية، ولم يحجر عليه، يكون كامل الأهلية لمباشرة حقوقه المدنية.\n(٢) وسن الرشد هى إحدى وعشرون سنة ميلادية كاملة.",
+  "text_en": "All persons attaining majority in possession of their mental faculties and not under legal disability, have full legal capacity to exercise their civil rights. The majority of a person is fixed at twenty one years completed in accordance with the Gregorian calendar.",
   "is_repealed": false, "repeal_note": null,
-  "source_page": 64,
-  "citation": "Egyptian Civil Code, Article 492"
+  "source_pages": [6],
+  "citation": "Egyptian Civil Code, Article 44"
 }
 ```
-- Paragraphs are joined with `\n`. A new paragraph starts at an Arabic `(n)` marker, or at a vertical gap larger than 1.6× the line spacing, so long articles can later be split by paragraph (handbook step 4).
+- `text_ar` keeps the source's paragraph markers, one paragraph per line.
+- English has no paragraph markers in the PDF, so `text_en` is one block.
 - All-caps headings are title-cased.
-- `text_ar` stays faithful to the source; `text_ar_normalized` is for search only (see below).
+- `source_pages` lists every page an article spans.
+
+## Chunking: one bilingual chunk per article
+Chunk text (built at ingestion, not stored in the corpus):
+```
+Preliminary Chapter > Persons > Individuals
+Article 44 | مادة 44
+<text_ar>
+<text_en>
+```
+Metadata: `article_number`, `part` … `subtopic`, `is_repealed`, `source_pages`.
+
+One vector per article means the top 10 are always 10 distinct articles. Repealed articles are indexed with their note, so "What does Article 60 say?" retrieves "repealed" instead of a hallucination.
+
+### Experiment (pages 1–10: 77 articles, 32 questions = 16 EN + 16 AR, Qwen3-Embedding-0.6B)
+Questions were paraphrased, not copied from the text, each with one known correct article.
+
+| Strategy | Distinct articles in top 10 | Recall@1 | Recall@3 | Recall@5 | MRR |
+|---|---|---|---|---|---|
+| S1 separate AR and EN chunks | **7.2** | 94% | 97% | 97% | 0.952 |
+| S2 one bilingual chunk | 10 | 91% | 97% | 97% | 0.938 |
+| **S3 one bilingual chunk + heading path (chosen)** | **10** | **94%** | **97%** | **100%** | **0.961** |
+| S4 separate chunks, grouped by article | 10 | 94% | 97% | 97% | 0.953 |
+| S5 query-language chunk only | 10 | 94% | 97% | 100% | 0.954 |
+
+- Separate chunks waste about 28% of the top-10 slots on the same article's other language.
+- The heading path lifts the plain bilingual chunk (Arabic Recall@1 88% → 94%).
+- A custom legal instruction for the query did not help; keep Qwen3's default query prompt.
+- The eval is small: one question is about 3 points. **Re-run S3 vs S4 on the full corpus** (about 1,093 live articles, more distractors) as the first MLflow experiment before committing to S3 for good.
+- If long articles ever have to be split by paragraph, group hits by `article_number` (S4-style) so the top 10 stay 10 distinct articles.
 
 ## Files
 ```
 src/rag/corpus/
-  extract.py     PDF → visual lines per column (char-level Arabic rebuild, span markers)
-  parse.py       lines → articles: markers, hierarchy, repeal notes, paragraphs
-  normalize.py   Arabic search normalization + punctuation spacing
+  extract.py     table rows → cell lines (char-level Arabic rebuild)
+  parse.py       rows → articles: markers, headings, continuations, repeal notes
+  normalize.py   Arabic search normalization (same function applied to queries)
   validate.py    corpus checks (used by build and by pytest)
   build.py       CLI: python -m rag.corpus.build → articles.json + corpus_report.json
 tests/test_corpus_extract.py   unit tests on synthetic chars (no PDF; CI-safe)
@@ -63,103 +101,71 @@ params.yaml                    corpus: section
 ```
 Reused:
 - `pymupdf` and `pyarabic` (already in `requirements.txt`);
-- `data/raw/egyptian_civil_code.pdf` (DVC-tracked);
-- the console's `rag.ui.data.load_articles()`, which already prefers `data/processed/articles.json`;
-- the `rag.ui.status._corpus()` stage, which flips to "working" when the file exists.
+- the DVC-tracked PDF;
+- `rag.ui.data.load_articles()` and the console's status check, which already look for `data/processed/articles.json`.
 
-`arabic-reshaper` / `python-bidi` turn out to be unnecessary: position-based rebuild replaces them. They stay in `requirements.txt` until a separate cleanup decides otherwise.
+`arabic-reshaper` / `python-bidi` turn out to be unnecessary; they stay in `requirements.txt` until a separate cleanup.
 
-## Core code
-The extraction logic and the regexes below ran in the in-memory prototype. The `parse.py` excerpt is a condensed sketch of the prototype's loop, with the fixes for the defects it exposed folded in.
+## Core code (from the tested prototype)
 
-### extract.py: faithful Arabic from glyph positions
+### extract.py
 ```python
-ALEFS, DIGIT = set("اأإآ"), re.compile(r"[0-9٠-٩]")
+def table_rows(doc, pages):
+    """Yield (page_no, en_lines, ar_lines) for each table row, in reading order."""
+    for pno in pages:
+        page = doc[pno]
+        chars = page_chars(page)                         # rawdict chars with a bold flag
+        for table in page.find_tables().tables:
+            for row in table.rows:
+                left, right = row.cells[0], row.cells[-1]
+                en = cell_lines([c for c in chars if left and inside(c, left)], "en")
+                ar = cell_lines([c for c in chars if right and inside(c, right)], "ar")
+                if en or ar:
+                    yield pno + 1, en, ar
 
-def arabic_line_text(chars: list[dict]) -> str:
-    """Rebuild one visual Arabic line: letters right→left, numbers left→right, fix lam-alef."""
+
+def arabic_line_text(chars):
+    """Letters right-to-left by x, numbers left-to-right by x, lam-alef ligature repaired."""
     cs = sorted(chars, key=lambda c: -(c["bbox"][0] + c["bbox"][2]) / 2)
     out, i = [], 0
     while i < len(cs):
         c = cs[i]
         zero_width = c["bbox"][2] - c["bbox"][0] < 0.01
         if c["c"] in ALEFS and zero_width and i + 1 < len(cs) and cs[i + 1]["c"] == "ل":
-            out += ["ل", c["c"]]; i += 2; continue          # ligature: lam first
+            out += ["ل", c["c"]]; i += 2; continue
         if DIGIT.match(c["c"]):
             j = i
             while j < len(cs) and (DIGIT.match(cs[j]["c"]) or cs[j]["c"] == " " and j + 1 < len(cs) and DIGIT.match(cs[j + 1]["c"])):
                 j += 1
             digits = [d for d in cs[i:j] if DIGIT.match(d["c"])]
-            out += [d["c"] for d in sorted(digits, key=lambda d: d["bbox"][0])]  # numbers read LTR
+            out += [d["c"] for d in sorted(digits, key=lambda d: d["bbox"][0])]
             i = j; continue
         out.append(c["c"]); i += 1
     return "".join(out)
 ```
-Lines are built per (page, column): collect spans, assign by x-centre, group spans within 3.5pt vertically. For Arabic, rebuild at **char level across the whole line**. For English, join spans left→right. Each line keeps `page`, `y`, `bold`, and `is_marker`, where the marker test runs on the raw span before merging:
+
+### parse.py (row loop, condensed)
 ```python
-EN_MARK = re.compile(r"^A?rticle\s*(\d+)$")                   # 'rticle 452', 'Article1022'
-AR_MARK = re.compile(r"^مادة\s*[()]?\s*([0-9٠-٩]+)\s*[()]?$")  # 'مادة (١)' with mirrored brackets
-REPEAL  = re.compile(r"Articles?\s+(\d+)\s*-\s*(\d+)\b.*repealed", re.I)
+for page_no, en, ar in table_rows(doc, pages):
+    starts_article = False
+    for ln in en:
+        if (m := EN_MARK.match(ln.text)):                  # ^A?rticle\s*(\d+)$
+            cur = articles[int(m[1])] = Article(int(m[1]), page_no, snapshot(head))
+            starts_article = True; continue
+        if (m := REPEAL.search(ln.text)):                  # Articles 54-80 … repealed
+            note = RepealNote(ln.text, page_no, snapshot(head))
+            for n in range(int(m[1]), int(m[2]) + 1): repeals[n] = note
+            continue
+        if ln.bold and not starts_article:                 # heading row
+            update_hierarchy(head, ln.text); continue
+        if cur and cur.number in repeals and not cur.en:   # "Decree." tail of the note
+            repeals[cur.number].text += " " + ln.text; continue
+        cur.en.append(ln.text); cur.pages.add(page_no)     # body or page-break continuation
+    for ln in ar:
+        if (m := AR_MARK.match(ln.text)):                  # مادة (n) → cross-check number
+            cur.ar_number = to_int(m[1]); continue
+        if not ln.bold: cur.ar.append(ln.text)
 ```
-
-### parse.py: hierarchy state machine + repeal notes
-```python
-LEVELS = ["part", "book", "chapter", "section", "topic", "subtopic"]
-KEYWORDS = [("part", r"^(FIRST|SECOND|THIRD|FOURTH) PART$"), ("book", r"^BOOK [IVXLC]+$"),
-            ("chapter", r"^CHAPTER [IVXLC]+$"), ("section", r"^SECTION [IVXLC]+$")]
-
-def parse_english(lines):
-    head, pending, arts, cur, repeals, in_note = {"part": "Preliminary Chapter"}, None, {}, None, {}, False
-    for ln in lines:
-        if ln.marker is not None:                      # "Article N" heading
-            cur, in_note = ln.marker, False
-            arts[cur] = Draft(page=ln.page, **{k: head.get(k) for k in LEVELS}); continue
-        if (m := REPEAL.search(ln.text)):              # "* Articles 54-80 have been repealed …"
-            note = RepealNote(text=ln.text, page=ln.page, hierarchy=dict(head))  # stubs inherit hierarchy
-            for n in range(int(m[1]), int(m[2]) + 1):
-                repeals[n] = note
-            in_note = True; continue
-        if in_note and not ln.bold:                    # "Decree." continuation stays in the note
-            note.text += " " + ln.text; continue
-        if ln.bold:
-            level = keyword_level(ln.text)
-            if level: pending = level; continue       # next bold line is its title
-            level = pending or ("topic" if re.match(r"^\d+\s*\.", ln.text) else "subtopic")
-            head[level] = smart_title(re.sub(r"^\d+\s*\.\s*", "", ln.text).rstrip(":"))
-            for lower in LEVELS[LEVELS.index(level) + 1:]: head.pop(lower, None)
-            pending = None; continue
-        if cur is not None: arts[cur].add_line(ln)     # paragraph break on large y-gap
-    return arts, repeals
-```
-`parse_arabic` skips lines until `نصوص القانون`, splits on `AR_MARK`, and drops bold lines (Arabic headings). A new paragraph starts at a `(n)` or `(أ)` marker.
-
-`merge()` joins by article number:
-- 1..1149 from EN ∪ AR ∪ repeal notes;
-- a repealed record takes `repeal_note` and the inherited hierarchy;
-- every EN/AR disagreement goes into the report.
-
-### normalize.py
-```python
-def normalize_ar(text: str) -> str:
-    """For embeddings/search only (same function must be applied to queries)."""
-    text = araby.strip_tashkeel(araby.strip_tatweel(text))
-    text = re.sub("[أإآٱ]", "ا", text).replace("ى", "ي")
-    return re.sub(r"\s+([،.؛:؟])", r"\1", text)
-```
-
-### validate.py (handbook step 3: validate before you embed)
-Returns a list of failures. `build.py` exits non-zero if any exist, so `dvc repro` can't produce a broken corpus.
-- Numbers are exactly 1..1149 (from `params.corpus`), each once.
-- The repealed set is exactly {54..80, 389..417}.
-- Every non-repealed record has non-empty `text_ar` and `text_en`, and a non-null `part`.
-- Length: no record over `max_chars` (6000; the longest real one is 1143 at 3,564) and none under 15 chars unless repealed.
-- No extraction artifacts in `text_ar`:
-  - Arabic presentation forms (U+FB50–FDFF, U+FE70–FEFF);
-  - ligature bugs (`\bا[أإآ]ل`, `إال`);
-  - stray `(`/`)` or `)(`;
-  - Latin letters.
-- No Arabic letters in `text_en`.
-- Golden records match exactly: 492 (full text), 505 (first sentence), 147 (first sentence + hierarchy).
 
 ### dvc.yaml
 ```yaml
@@ -186,22 +192,35 @@ corpus:
   line_merge_pt: 3.5
   max_chars: 6000
 ```
+
+## Validation (build fails if any check fails)
+- Numbers are exactly 1..1149, each once. The repealed set is exactly {54..80, 389..417}.
+- The Arabic `مادة (n)` agrees with the English `Article N` for every live article.
+- Every live record has non-empty `text_ar` and `text_en`, and a non-null `part`.
+- Every page-break continuation row was attached to an article (none dropped).
+- No record over `max_chars` (6000) and none under 15 chars unless repealed.
+- No extraction artifacts in `text_ar`:
+  - Arabic presentation forms;
+  - `األ` / `إال` ligature bugs;
+  - stray or doubled brackets;
+  - Latin letters.
+- No Arabic letters in `text_en`.
+- Golden records match exactly: 43 and 44 (from the PDF, above) and 492.
+
 `corpus_report.json` records:
 - counts;
+- page-split articles;
 - repealed ranges;
-- EN/AR mismatches;
-- source typos that were tolerated (`rticle 452`, `Article1022`, `٥١ أكتوبر`);
+- tolerated source typos;
 - warnings.
 
-It's the "what you hit" section for the handbook report. After `dvc repro`, run `dvc push` so the JSON is pullable from the public S3 remote.
+This is the "what you hit" section for the handbook report.
 
 ## Verification
-1. `pytest tests/test_corpus_extract.py`: ligature swap, digit ordering (visual and logical input), markers vs cross-refs, bracket cleanup, on synthetic char dicts.
-2. `dvc repro` → builds and validates; `dvc status` clean; `data/processed/corpus_report.json` shows 1,149 records, 56 repealed, 0 failures.
+1. `pytest tests/test_corpus_extract.py`: ligature swap, digit order, markers vs cross-references, bracket cleanup, continuation rows.
+2. `dvc repro` builds and validates; `corpus_report.json` shows 1,149 records, 56 repealed, 0 failures.
 3. `pytest tests/test_corpus.py` passes on the built file.
-4. Eyeball check (handbook: "eyeball 20 random articles"): a script prints 20 random records side by side with the PDF page number, compared by hand.
-5. The console at `http://localhost:7860`:
-   - Status shows "Structured corpus: Working, 1149 articles";
-   - the Corpus view lists every article;
-   - Ask works with any article as context.
-6. Commit `dvc.yaml`, `dvc.lock`, `params.yaml`, code and tests; `dvc push`.
+4. Eyeball 20 random articles against the PDF pages listed in `source_pages` (handbook requirement).
+5. The test console shows "Structured corpus: Working, 1149 articles"; the Corpus view lists every article.
+6. `dvc push`, then commit `dvc.yaml`, `dvc.lock`, `params.yaml`, code and tests.
+7. First retrieval experiment: S3 vs S4 on the full corpus, logged to MLflow.

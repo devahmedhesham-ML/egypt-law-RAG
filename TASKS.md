@@ -1,0 +1,100 @@
+# Tasks: Project 2 · LLM / RAG (Arabic Legal Document Q&A)
+
+Source: MLOps Practitioner Handbook pp. 63–69 (rules, Project 2 brief, 10-point rubric, Project 2 checklist).
+Optimization items come from the "What you ship" table on p. 66, because the p. 69 checklist stops before them.
+`R0x` = rubric row on p. 67.
+
+## Course rules (p. 63)
+- [ ] At least one GitHub commit per session (5 sessions)
+- [ ] Review another student's project, 300+ words covering setup, code, a strength, 2 improvements and an extension (R09)
+
+## Now: Langfuse tracing (done) and follow-ups
+- [x] One `answer-question` trace per answer: retriever → embedding, generation (prompt, tokens, time to first token, reasoning), citation evaluator
+- [x] `search-articles`, `index-corpus` and `build-corpus` traces; batch jobs flush before exit
+- [x] Scores: `citations_outside_context`, `answer_has_citations`, `tester_rating`, `tester_issue`, `corpus_warnings`, `smoke_top1_rate`, `build_warnings`
+- [x] Console: per-tab session, "Trace ↗" link on every answer and search, Traces view, live Langfuse status check
+- [x] Audited real traces against the Langfuse best-practices page; fixed Stop handling, model-load span, service name, smoke sessions
+- [x] Tests disable tracing (`tests/conftest.py`): 58 passing
+- [ ] `dvc repro` + `dvc push`: the tracing edits touched `src/rag/corpus` and `src/rag/ingest`, so both stages show as changed (outputs should be identical; needs `aws login` for the push)
+
+## Done: build corpus + GPU ingestion into Chroma
+- [x] `params.yaml`: `corpus:` and `ingest:` sections
+- [x] `rag.corpus`: column streams split on markers + table rows as cross-check, Arabic rebuild, bilingual numbered hierarchy
+- [x] `rag.corpus.build`: progress bar, warnings summary, `articles.json` + `corpus_report.json` (170 pages in ~3.5 s)
+- [x] Checks: AR/EN number match, full articles (cut-offs, paragraphs, lists, reversed numbers), gaps, artifacts, golden records
+- [x] Run the build on the whole PDF and review every warning: 1,149 articles, 11 warnings, all source issues
+- [x] `rag.ingest`: warning gate, bilingual chunks, multi-replica GPU embedding with progress, Chroma write, smoke queries (4/4 top-1)
+- [x] Measure: 1 replica is fastest on this GPU (33k tok/s); auto mode adds replicas only if they fit AND the GPU has idle cores
+- [x] Tests (extraction, hierarchy, chunks, replica planner, warning gate): 53 passing
+- [x] Console: full corpus in the Corpus view (warnings, Random 20, breadcrumbs), index status, context search
+- [x] `dvc.yaml` stages `build_corpus` + `index`, `dvc repro`, commit and push
+- [x] `dvc push` of the corpus and index
+- [ ] Replace the expired Bedrock API key in `.env` (yours: status shows 401 invalid_api_key)
+
+## 1. Corpus (Step 0, pp. 64–65, 69)
+Plan: [docs/plans/corpus-build.md](docs/plans/corpus-build.md)
+- [x] Civil Code PDF converted to structured JSON, one record per article (1,149), DVC-tracked (`dvc.lock`)
+- [ ] Extraction validated: numbers are integers and repealed articles flagged (done); Arabic spot-checked on 20 articles (yours: Corpus view → Random 20)
+- [x] Source PDF tracked with DVC; `dvc pull` fetches it from the public S3 bucket
+- [x] Derived JSON tracked with DVC too; `dvc repro` rebuilds the JSON from the PDF (R05)
+
+## 2. Ingestion and retrieval (p. 69)
+- [x] Embedding model installed and tested: Qwen/Qwen3-Embedding-0.6B (recall@1 7/8, recall@3 8/8 on the sample)
+- [x] Ingestion pipeline: JSON → chunk by article → embed → vector store (Chroma, 1,149 vectors)
+- [x] `dvc repro` re-indexes the corpus reproducibly from tracked documents (R05)
+- [x] Wire retrieval into the console: Ask/Compare search the index per question (top-k); Retrieval inspector view
+- [ ] Retrieval in the BentoML `/ask` endpoint (with the API)
+- [ ] Batch re-indexing script tested with at least one new document
+
+## 3. Code, API, Docker (Module 1 · R01–R03, p. 69)
+- [x] `src/` layout with `pyproject.toml`; `pip install -e .` works (R01)
+- [x] LLM layer: one OpenAI-compatible client over Bedrock (`gpt-oss-120b`) and vLLM, inline article citations, citation check
+- [ ] FastAPI `/ask`: `{question: str}` → `{answer: str, sources: list[str]}`, with sources as article citations, not chunk IDs (R02)
+- [ ] Pydantic rejects an empty question: 422 returned and tested with curl (R02)
+- [ ] `/health` returns `{status: healthy, documents_indexed: N}` (R02)
+- [ ] Dockerfile includes the vector store and embedded documents; `docker compose up` starts on port 8000 (R03)
+- [ ] README: exactly 3 commands to run Q&A on any machine (R03, R10)
+
+## 4. Tracking, versioning, CI (Module 2 · R04–R06, p. 69)
+- [ ] MLflow logs each config: `chunk_size`, `overlap`, `embedding_model`, `faithfulness` (R04)
+- [ ] 5+ runs compared; MLflow screenshot in `/reports/` (R04)
+- [ ] Best chunking config registered in the MLflow Registry (R04)
+- [ ] GitHub Actions: lint → test → rebuild index → push Docker image (R06)
+- [ ] CI fails if RAGAS faithfulness < 0.75 on a 20-question test set (R06)
+
+## 5. Production serving (Module 3 · R07, pp. 66, 69)
+- [x] vLLM serves the generative LLM, model name in README (`Qwen/Qwen2.5-7B-Instruct-AWQ`, `scripts/serve_vllm.sh`)
+- [ ] BentoML wraps the RAG pipeline with an async `/ask` endpoint
+- [ ] Streaming: tokens appear progressively in `curl` output (works in the test console; not yet on `/ask`)
+- [ ] Locust report at 50 concurrent users in `/reports/`, with p95 latency documented
+- [ ] Canary rollout config documented in README
+
+## 6. Optimization (Module 4, p. 66)
+- [ ] Own AWQ-4bit quantization of the generative model (calibrated on Arabic articles)
+- [ ] Re-ranker distillation
+- [ ] RAGAS before vs after optimization
+
+## 7. Monitoring and observability (Module 5 · R08, pp. 66, 69)
+- [ ] RAGAS on 50+ questions, all 4 metrics logged
+- [ ] RAGAS results stored in MLflow, with the trend visible across sessions
+- [ ] Grafana panel for RAGAS faithfulness; screenshot in README (R08)
+- [ ] Alert: faithfulness < 0.80 triggers a notification; threshold documented (R08)
+- [x] Langfuse tracing over the whole app: answers, searches, index and corpus builds, citation and tester scores (Langfuse Cloud)
+- [ ] Langfuse **self-hosted** (the handbook asks for it; same keys/env vars, only `LANGFUSE_BASE_URL` changes)
+- [ ] Model prices in Langfuse for `openai.gpt-oss-120b` (Bedrock) so cost shows per trace
+- [ ] RAGAS faithfulness score attached to each Langfuse trace
+- [ ] Cosine embedding drift and token cost tracked
+
+## 8. README and architecture (R10)
+- [ ] 3-command setup that the reviewer runs without asking anything
+- [ ] Architecture diagram covering all 5 sessions
+- [ ] Session changelog
+
+## Done outside the handbook list
+- [x] Test console (`python -m rag.ui`): Ask, Compare, Status, Corpus, Retrieval, Traces, feedback log
+- [x] Public S3 DVC remote with anonymous pulls; lock files for the app, serve and quantize venvs
+
+## Housekeeping (yours)
+- [ ] Delete the unused IAM access keys from `.env` and deactivate them in AWS IAM
+- [x] Commit this `TASKS.md`
+- [ ] Decide whether to commit `.claude/skills/langfuse` and `test.ipynb`

@@ -97,6 +97,7 @@ const stageDetail = (id) => state.stageById.get(id)?.detail ?? 'Checking…';
 
 function showView(name) {
   if (!VIEWS.includes(name)) name = 'ask';
+  closeDrawer();
   for (const v of VIEWS) $(`#view-${v}`).hidden = v !== name;
   $$('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.view === name));
   const slot = $(`#view-${name} .context-slot`);
@@ -167,13 +168,26 @@ const articlePreview = (a) => (a.is_repealed ? 'Repealed article' : (a.text_en |
 const topicGroup = (a) => (a.topic || 'Other').split(':')[0].trim();
 const selectedNumbers = () => state.articles.map((a) => a.article_number).filter((n) => state.selected.has(n));
 
+const LARGE_CORPUS = 60; // above this: nothing preselected, search instead of scrolling
+const CONTEXT_WARN = 25; // more selected articles than this: slow, and may exceed vLLM's 8K window
+const LIST_CAP = 200;
+const matchesQuery = (a, q) => `${a.article_number} ${a.topic || ''} ${a.text_en || ''} ${a.text_ar || ''}`.toLowerCase().includes(q);
+const listHint = (text) => h('div', { class: 'ctx-item' }, h('span'), h('span'), h('span', { class: 'ctx-topic' }, text));
+
+function contextPool(q) {
+  if (q) {
+    const hits = state.articles.filter((a) => matchesQuery(a, q));
+    return hits.sort((a, b) => (String(b.article_number) === q) - (String(a.article_number) === q));
+  }
+  return state.articles.length > LARGE_CORPUS ? state.articles.filter((a) => state.selected.has(a.article_number)) : state.articles;
+}
+
 function renderContextPicker() {
   const q = $('#ctx-filter').value.trim().toLowerCase();
   const list = $('#ctx-list');
   list.replaceChildren();
-  for (const a of state.articles) {
-    const hay = `${a.article_number} ${a.topic || ''} ${a.text_en || ''} ${a.text_ar || ''}`.toLowerCase();
-    if (q && !hay.includes(q)) continue;
+  const pool = contextPool(q);
+  for (const a of pool.slice(0, LIST_CAP)) {
     const id = `ctx-${a.article_number}`;
     const cb = h('input', { type: 'checkbox', id, checked: state.selected.has(a.article_number) });
     cb.addEventListener('change', () => {
@@ -190,22 +204,44 @@ function renderContextPicker() {
           h('div', { class: 'ctx-preview', dir: 'auto' }, articlePreview(a)))),
     );
   }
-  if (!list.children.length) list.append(h('div', { class: 'ctx-item' }, h('span'), h('span'), h('span', { class: 'ctx-topic' }, 'No articles match.')));
+  if (pool.length > LIST_CAP) list.append(listHint(`${pool.length - LIST_CAP} more match: refine the search.`));
+  if (!pool.length) {
+    list.append(listHint(q ? 'No articles match.'
+      : `Search ${state.articles.length.toLocaleString()} articles by number or word, then tick the ones the model may use.`));
+  }
   updateCtxCount();
 }
 
 function updateCtxCount() {
-  $('#ctx-count').textContent = `${state.selected.size} of ${state.articles.length} selected`;
+  const n = state.selected.size;
+  const el = $('#ctx-count');
+  el.textContent = `${n} of ${state.articles.length.toLocaleString()} selected`
+    + (n > CONTEXT_WARN ? " · large context: slower, may exceed vLLM's 8K window" : '');
+  el.classList.toggle('warn-text', n > CONTEXT_WARN);
 }
 
 function renderCtxQuick() {
   const set = (nums) => { state.selected = new Set(nums); renderContextPicker(); };
-  const groups = [...new Set(state.articles.filter((a) => !a.is_repealed).map(topicGroup))];
-  $('#ctx-quick').replaceChildren(
-    h('button', { class: 'chip', type: 'button', onclick: () => set(state.articles.filter((a) => !a.is_repealed).map((a) => a.article_number)) }, 'All'),
-    h('button', { class: 'chip', type: 'button', onclick: () => set([]) }, 'None'),
-    ...groups.map((g) => h('button', { class: 'chip', type: 'button', onclick: () => set(state.articles.filter((a) => topicGroup(a) === g).map((a) => a.article_number)) }, g)),
-  );
+  const live = state.articles.filter((a) => !a.is_repealed);
+  const chips = [h('button', { class: 'chip', type: 'button', onclick: () => set([]) }, 'None')];
+  if (state.articles.length <= LARGE_CORPUS) {
+    chips.unshift(h('button', { class: 'chip', type: 'button', onclick: () => set(live.map((a) => a.article_number)) }, 'All'));
+    const groups = [...new Set(live.map(topicGroup))];
+    if (groups.length <= 12) {
+      chips.push(...groups.map((g) => h('button', { class: 'chip', type: 'button', onclick: () => set(live.filter((a) => topicGroup(a) === g).map((a) => a.article_number)) }, g)));
+    }
+  } else {
+    chips.push(h('button', {
+      class: 'chip', type: 'button', title: 'Adds up to 20 live articles matching the search box',
+      onclick: () => {
+        const q = $('#ctx-filter').value.trim().toLowerCase();
+        if (!q) { toast('Type a search first: an article number or a word.'); return; }
+        const add = contextPool(q).filter((a) => !a.is_repealed).slice(0, 20).map((a) => a.article_number);
+        set([...state.selected, ...add]);
+      },
+    }, 'Add matches (up to 20)'));
+  }
+  $('#ctx-quick').replaceChildren(...chips);
 }
 
 /* ---------- backends and examples ---------- */
@@ -524,10 +560,14 @@ function openArticle(num, contextNums) {
       : h('div', { class: 'check bad' }, '✗ This article was not in the context sent to the model.'));
   }
   if (!a) {
-    body.append(h('p', { class: 'card-sub' }, 'Not among the loaded articles. The full corpus is not built yet.'));
+    body.append(h('p', { class: 'card-sub' }, state.articleSource === 'sample'
+      ? 'Not among the loaded articles. The full corpus is not built yet.' : 'No such article in the corpus.'));
   } else {
-    if (a.topic) body.append(h('div', {}, h('span', { class: 'badge neutral' }, a.topic)));
-    if (a.is_repealed) body.append(h('div', { class: 'notice partial' }, 'This article was repealed; it has no text.'));
+    const crumbs = breadcrumb(a);
+    if (crumbs) body.append(crumbs);
+    else if (a.topic) body.append(h('div', {}, h('span', { class: 'badge neutral' }, a.topic)));
+    if (a.source_pages) body.append(h('div', { class: 'card-sub' }, `Source PDF page${a.source_pages.length > 1 ? 's' : ''} ${a.source_pages.join(', ')}`));
+    if (a.is_repealed) body.append(h('div', { class: 'notice partial' }, a.repeal_note || 'This article was repealed; it has no text.'));
     if (a.text_ar) body.append(h('div', {}, h('div', { class: 'drawer-section-label' }, 'العربية'), h('div', { class: 'drawer-text is-ar', dir: 'rtl' }, a.text_ar)));
     if (a.text_en) body.append(h('div', {}, h('div', { class: 'drawer-section-label' }, 'English'), h('div', { class: 'drawer-text' }, a.text_en)));
   }
@@ -608,14 +648,78 @@ function renderNavTags() {
 
 /* ---------- corpus ---------- */
 
-function renderCorpus() {
-  $('#corpus-banner').replaceChildren(
-    state.articleSource === 'sample'
-      ? h('div', { class: 'notice partial', style: 'margin-bottom:14px' },
-        h('strong', {}, `Sample only: ${plural(state.articles.length, 'article')}. `),
-        'The structured corpus (every article of the Civil Code as one JSON record) is not built yet. ',
-        'These were hand-cleaned from the source PDF, pages 64–66, so the rest of the console can be tested meanwhile.')
-      : h('div', { class: 'notice planned', style: 'margin-bottom:14px' }, state.articleNote),
+const LEVEL_LABELS = [['part', 'Part'], ['book', 'Book'], ['chapter', 'Chapter'], ['section', 'Section'], ['topic', 'Topic']];
+
+function breadcrumb(a) {
+  const items = [];
+  for (const [key, label] of LEVEL_LABELS) {
+    const n = a[`${key}_number`];
+    const en = a[`${key}_title_en`];
+    const ar = a[`${key}_title_ar`];
+    if (n == null && !en) continue;
+    items.push(h('span', { class: 'crumb' },
+      h('span', { class: 'crumb-en' }, `${label}${n != null ? ` ${n}` : ''}${en ? `: ${en}` : ''}`),
+      ar ? h('span', { class: 'crumb-ar', dir: 'rtl' }, ar) : null));
+  }
+  if (a.subtopic_title_en) {
+    items.push(h('span', { class: 'crumb' }, h('span', { class: 'crumb-en' }, a.subtopic_title_en),
+      a.subtopic_title_ar ? h('span', { class: 'crumb-ar', dir: 'rtl' }, a.subtopic_title_ar) : null));
+  }
+  return items.length ? h('div', { class: 'crumbs' }, items) : null;
+}
+
+function articleBody(a) {
+  return h('div', { class: 'article-detail' },
+    breadcrumb(a),
+    a.is_repealed ? h('div', { class: 'notice partial' }, [a.repeal_note, a.repeal_note_ar].filter(Boolean).join(' · ') || 'Repealed.') : null,
+    h('div', { class: 'article-body' },
+      h('div', { class: 'col is-ar', dir: 'rtl' }, h('div', { class: 'col-label' }, 'العربية'), a.text_ar || '—'),
+      h('div', { class: 'col' }, h('div', { class: 'col-label' }, 'English'), a.text_en || '—')));
+}
+
+function pickRandom(n) {
+  const live = state.articles.filter((a) => !a.is_repealed).map((a) => a.article_number);
+  for (let i = live.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [live[i], live[j]] = [live[j], live[i]];
+  }
+  return live.slice(0, n).sort((x, y) => x - y);
+}
+
+async function renderCorpus() {
+  const banner = $('#corpus-banner');
+  if (state.articleSource === 'sample') {
+    banner.replaceChildren(h('div', { class: 'notice partial', style: 'margin-bottom:14px' },
+      h('strong', {}, `Sample only: ${plural(state.articles.length, 'article')}. `),
+      'The structured corpus is not built yet: run python -m rag.corpus.build. ',
+      'These were hand-cleaned from the source PDF, pages 64–66, so the rest of the console can be tested meanwhile.'));
+    renderCorpusList();
+    return;
+  }
+  let report = null;
+  try { report = await api('/api/corpus/report'); } catch { /* the list still works without it */ }
+  const c = report?.counts || {};
+  const warnings = report?.warnings || [];
+  const stat = (label, value) => h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, label), h('div', { class: 'stat-val' }, value));
+  banner.replaceChildren(
+    h('div', { class: 'stat-row' },
+      stat('Articles', (c.records ?? state.articles.length).toLocaleString()),
+      stat('Live / repealed', `${(c.live ?? '—').toLocaleString()} / ${c.repealed ?? '—'}`),
+      stat('Hierarchy', `${c.parts ?? '—'}·${c.books ?? '—'}·${c.chapters ?? '—'}·${c.sections ?? '—'}`),
+      stat('Build warnings', String(warnings.length))),
+    h('div', { class: 'corpus-actions' },
+      h('button', { class: 'btn small', type: 'button', onclick: () => { state.corpusSample = pickRandom(20); renderCorpusList(); } },
+        'Random 20 (eyeball check)'),
+      h('button', { class: 'btn ghost small', type: 'button', onclick: () => { state.corpusSample = null; renderCorpusList(); } }, 'Show all'),
+      h('span', { class: 'card-sub' }, report?.generated_at ? `Built ${new Date(report.generated_at).toLocaleString()} · parts·books·chapters·sections` : '')),
+    warnings.length ? h('details', { class: 'card warnings-panel' },
+      h('summary', {}, h('strong', {}, `${plural(warnings.length, 'build warning')} to review`),
+        h('span', { class: 'card-sub' }, ' — from python -m rag.corpus.build; click an article to read it')),
+      h('div', { class: 'warn-list' }, warnings.map((w) => h('div', { class: 'warn-item' },
+        h('span', { class: 'badge partial' }, w.code),
+        w.article ? h('button', { class: 'cite', type: 'button', dataset: { article: w.article } }, `Art. ${w.article}`) : null,
+        w.page ? h('span', { class: 'card-sub' }, `p. ${w.page}`) : null,
+        h('span', { class: 'warn-msg', dir: 'auto' }, w.message))))) : null,
   );
   renderCorpusList();
 }
@@ -624,21 +728,26 @@ function renderCorpusList() {
   const q = $('#corpus-filter').value.trim().toLowerCase();
   const list = $('#corpus-list');
   list.replaceChildren();
-  for (const a of state.articles) {
-    const hay = `${a.article_number} ${a.topic || ''} ${a.text_en || ''} ${a.text_ar || ''}`.toLowerCase();
-    if (q && !hay.includes(q)) continue;
-    list.append(
-      h('details', { class: 'article' },
-        h('summary', {},
-          h('span', { class: 'article-num' }, `Art. ${a.article_number}`),
-          h('span', { class: 'article-preview', dir: 'auto' }, articlePreview(a)),
-          h('span', { class: `badge ${a.is_repealed ? 'partial' : 'neutral'}` }, a.is_repealed ? 'Repealed' : a.topic || '')),
-        h('div', { class: 'article-body' },
-          h('div', { class: 'col is-ar', dir: 'rtl' }, h('div', { class: 'col-label' }, 'العربية'), a.text_ar || '—'),
-          h('div', { class: 'col' }, h('div', { class: 'col-label' }, 'English'), a.text_en || '—'))),
-    );
+  const sample = state.corpusSample;
+  const pool = sample ? sample.map((n) => state.byNumber.get(n)).filter(Boolean) : state.articles;
+  let shown = 0;
+  let hidden = 0;
+  for (const a of pool) {
+    if (q && !matchesQuery(a, q)) continue;
+    if (shown >= 300) { hidden += 1; continue; }
+    shown += 1;
+    const details = h('details', { class: 'article', open: Boolean(sample) },
+      h('summary', {},
+        h('span', { class: 'article-num' }, `Art. ${a.article_number}`),
+        h('span', { class: 'article-preview', dir: 'auto' }, articlePreview(a)),
+        h('span', { class: `badge ${a.is_repealed ? 'partial' : 'neutral'}` }, a.is_repealed ? 'Repealed' : a.topic || '')));
+    if (sample) details.append(articleBody(a));
+    else details.addEventListener('toggle', () => { if (details.open && details.children.length === 1) details.append(articleBody(a)); });
+    list.append(details);
   }
-  if (!list.children.length) list.append(h('div', { class: 'empty' }, 'No articles match.'));
+  if (sample) list.prepend(h('div', { class: 'notice planned' }, `Random sample of 20 live articles: compare each with the PDF page shown in its header.`));
+  if (hidden) list.append(h('div', { class: 'empty' }, `${hidden.toLocaleString()} more articles match: refine the search.`));
+  if (!shown) list.append(h('div', { class: 'empty' }, 'No articles match.'));
 }
 
 /* ---------- planned views ---------- */
@@ -854,7 +963,8 @@ async function init() {
     state.byNumber = new Map(arts.articles.map((a) => [a.article_number, a]));
     state.articleSource = arts.source;
     state.articleNote = arts.note;
-    state.selected = new Set(arts.articles.filter((a) => !a.is_repealed).map((a) => a.article_number));
+    state.selected = new Set(arts.articles.length > LARGE_CORPUS ? []
+      : arts.articles.filter((a) => !a.is_repealed).map((a) => a.article_number));
   } catch (e) {
     toast(`Could not load the console: ${e.message}`);
     return;

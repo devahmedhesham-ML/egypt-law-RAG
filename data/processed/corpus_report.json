@@ -1,0 +1,2016 @@
+{
+ "generated_at": "2026-09-28T13:09:44+00:00",
+ "pdf": "data/raw/egyptian_civil_code.pdf",
+ "pdf_sha256": "2d6419fb262dab712f7bf5f6e31834bea74fbcf03b78ae081dd35d156915eebf",
+ "articles_sha256": "7b00bde89b9b58e60e7bcac5cd527cfa0fc3e77dc893d0b876d4d2f1a1ed4906",
+ "pages_processed": [
+  1,
+  170
+ ],
+ "counts": {
+  "records": 1149,
+  "live": 1093,
+  "repealed": 56,
+  "pages": 170,
+  "tables": 172,
+  "page_split_articles": 146,
+  "parts": 2,
+  "books": 4,
+  "chapters": 16,
+  "sections": 53,
+  "topics": 86,
+  "warnings": 11,
+  "info": 265
+ },
+ "repealed_ranges": [
+  "54-80",
+  "389-417"
+ ],
+ "issues_by_code": {
+  "AR_HEADING_UNPAIRED": {
+   "level": "info",
+   "count": 1
+  },
+  "DIGITS_FROM_TEXT_LAYER": {
+   "level": "info",
+   "count": 3
+  },
+  "HEADING_NO_ARABIC": {
+   "level": "info",
+   "count": 1
+  },
+  "LIST_FORMAT_DIFFERS": {
+   "level": "info",
+   "count": 16
+  },
+  "MARKER_GLUED": {
+   "level": "info",
+   "count": 6
+  },
+  "MARKER_TYPO": {
+   "level": "info",
+   "count": 2
+  },
+  "NO_FINAL_PERIOD_AR": {
+   "level": "info",
+   "count": 33
+  },
+  "NO_FINAL_PERIOD_EN": {
+   "level": "info",
+   "count": 2
+  },
+  "PAGE_BREAK": {
+   "level": "info",
+   "count": 146
+  },
+  "PARENS_UNBALANCED_EN": {
+   "level": "info",
+   "count": 19
+  },
+  "PART_TITLE_FROM_OFFICIAL": {
+   "level": "info",
+   "count": 1
+  },
+  "PREAMBLE": {
+   "level": "info",
+   "count": 18
+  },
+  "REPEAL_NOTE": {
+   "level": "info",
+   "count": 2
+  },
+  "ROW_WITHOUT_MARKER": {
+   "level": "info",
+   "count": 11
+  },
+  "TEXT_OUTSIDE_TABLE": {
+   "level": "info",
+   "count": 4
+  },
+  "AR_NUMBER_MISSING": {
+   "level": "warning",
+   "count": 1
+  },
+  "CUT_OFF_AR": {
+   "level": "warning",
+   "count": 4
+  },
+  "EMPTY_TEXT_AR": {
+   "level": "warning",
+   "count": 1
+  },
+  "GAP_BEFORE_ARTICLE": {
+   "level": "warning",
+   "count": 1
+  },
+  "LENGTH_RATIO": {
+   "level": "warning",
+   "count": 4
+  }
+ },
+ "issues": [
+  {
+   "level": "info",
+   "code": "TEXT_OUTSIDE_TABLE",
+   "message": "22 chars outside the table grid, read in position order: 'موت المستأجر أو إعساره'",
+   "page": 81
+  },
+  {
+   "level": "info",
+   "code": "TEXT_OUTSIDE_TABLE",
+   "message": "11 chars outside the table grid, read in position order: 'SECOND PART'",
+   "page": 113
+  },
+  {
+   "level": "info",
+   "code": "TEXT_OUTSIDE_TABLE",
+   "message": "11 chars outside the table grid, read in position order: 'Article1022'",
+   "page": 147
+  },
+  {
+   "level": "info",
+   "code": "TEXT_OUTSIDE_TABLE",
+   "message": "56 chars outside the table grid, read in position order: 'If the owner of the servient tenement is responsible for'",
+   "page": 148
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'ةنس ر'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'وينوي'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'ةماع'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'القانون المدني المصري'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'قانون الإصدار'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'مادة ١'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'يلغي القانون المدني المعمول به أمام المحاكم الوطني'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: '١٨٨٣ والقانون المدني المعمول به أمام المحاكم المخت'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'سنة ١٨٧٥ ويستعاض عنهما بالقانون المدني المرافق لهذ'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'مادة ٢'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'على وزير العدل تنفيذ هذا القانون ويعمل به ابتداء م'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: '.١٩٤٩'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'نأمر بأن يبصم هذا القانون بخاتم الدولة وأن ينشر في'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'كقانون من قوانين الدولة.'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'صدر بقصر القبة في ٩ رمضان سنة ١٣٦٧ ١٦ يوليو سنة ١٩'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'نصوص القانون المدنى'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'باب تمهيدي'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "PREAMBLE",
+   "message": "skipped text above the first table: 'أحكام'",
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "REPEAL_NOTE",
+   "message": "Articles 54-80: 'Articles 54-80 have been repealed by Presidential Decree.'",
+   "page": 7
+  },
+  {
+   "level": "info",
+   "code": "MARKER_GLUED",
+   "message": "marker shared a line with its text: 'Article 277 If the option belongs to the debtor an'",
+   "article": 277,
+   "page": 36
+  },
+  {
+   "level": "info",
+   "code": "REPEAL_NOTE",
+   "message": "Articles 389-417: 'Articles 389-417 repealed'",
+   "page": 53
+  },
+  {
+   "level": "info",
+   "code": "MARKER_TYPO",
+   "message": "source prints 'rticle…' for Article 452",
+   "article": 452,
+   "page": 59
+  },
+  {
+   "level": "info",
+   "code": "AR_HEADING_UNPAIRED",
+   "message": "Arabic heading with no English heading beside it: 'موت المستأجر أو إعساره'",
+   "page": 81
+  },
+  {
+   "level": "info",
+   "code": "MARKER_GLUED",
+   "message": "marker shared a line with its text: 'Article 714 The mandate comes to an end by the'",
+   "article": 714,
+   "page": 100
+  },
+  {
+   "level": "info",
+   "code": "MARKER_GLUED",
+   "message": "marker shared a line with its text: 'Article 746 If the grantor does not fulfil his obl'",
+   "article": 746,
+   "page": 105
+  },
+  {
+   "level": "info",
+   "code": "MARKER_GLUED",
+   "message": "marker shared a line with its text: 'Article 898 An administrator shall, after discharg'",
+   "article": 898,
+   "page": 129
+  },
+  {
+   "level": "info",
+   "code": "MARKER_GLUED",
+   "message": "marker shared a line with its text: 'Article 908 A'",
+   "article": 908,
+   "page": 130
+  },
+  {
+   "level": "info",
+   "code": "MARKER_TYPO",
+   "message": "source prints 'Article1022…' for Article 1022",
+   "article": 1022,
+   "page": 147
+  },
+  {
+   "level": "info",
+   "code": "ROW_WITHOUT_MARKER",
+   "message": "a row without 'Article N' continues Article 1022: 'In the absence of an agreement to the contrary, th'",
+   "article": 1022,
+   "page": 147
+  },
+  {
+   "level": "info",
+   "code": "ROW_WITHOUT_MARKER",
+   "message": "a row without 'Article N' continues Article 1022: 'of the necessary works for the use and preservatio'",
+   "article": 1022,
+   "page": 147
+  },
+  {
+   "level": "info",
+   "code": "ROW_WITHOUT_MARKER",
+   "message": "a row without 'Article N' continues Article 1022: 'the servitude must be borne by the owner of the'",
+   "article": 1022,
+   "page": 147
+  },
+  {
+   "level": "info",
+   "code": "ROW_WITHOUT_MARKER",
+   "message": "a row without 'Article N' continues Article 1022: 'dominant tenement.'",
+   "article": 1022,
+   "page": 147
+  },
+  {
+   "level": "info",
+   "code": "ROW_WITHOUT_MARKER",
+   "message": "a row without 'Article N' continues Article 1022: 'carrying out these works at his own cost, he has a'",
+   "article": 1022,
+   "page": 148
+  },
+  {
+   "level": "info",
+   "code": "ROW_WITHOUT_MARKER",
+   "message": "a row without 'Article N' continues Article 1022: 'the right to free himself of this burden by abando'",
+   "article": 1022,
+   "page": 148
+  },
+  {
+   "level": "info",
+   "code": "ROW_WITHOUT_MARKER",
+   "message": "a row without 'Article N' continues Article 1022: 'the servient tenement wholly or in part to the own'",
+   "article": 1022,
+   "page": 148
+  },
+  {
+   "level": "info",
+   "code": "ROW_WITHOUT_MARKER",
+   "message": "a row without 'Article N' continues Article 1022: 'the dominant property.'",
+   "article": 1022,
+   "page": 148
+  },
+  {
+   "level": "info",
+   "code": "ROW_WITHOUT_MARKER",
+   "message": "a row without 'Article N' continues Article 1022: 'If the works also benefit the owner of the servien'",
+   "article": 1022,
+   "page": 148
+  },
+  {
+   "level": "info",
+   "code": "ROW_WITHOUT_MARKER",
+   "message": "a row without 'Article N' continues Article 1022: 'tenement, the cost of upkeep falls on the two part'",
+   "article": 1022,
+   "page": 148
+  },
+  {
+   "level": "info",
+   "code": "ROW_WITHOUT_MARKER",
+   "message": "a row without 'Article N' continues Article 1022: 'proportion to the profit derived by each of them.'",
+   "article": 1022,
+   "page": 148
+  },
+  {
+   "level": "warning",
+   "code": "GAP_BEFORE_ARTICLE",
+   "message": "Arabic: Article 1023 follows Article 1021; nothing found for 1022",
+   "article": 1023,
+   "page": 148
+  },
+  {
+   "level": "info",
+   "code": "MARKER_GLUED",
+   "message": "marker shared a line with its text: 'Article 1090 The President of the Court will recor'",
+   "article": 1090,
+   "page": 159
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 6 continues on page 2",
+   "article": 6,
+   "page": 2
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 20 continues on page 4",
+   "article": 20,
+   "page": 4
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 42 continues on page 6",
+   "article": 42,
+   "page": 6
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 83 continues on page 8",
+   "article": 83,
+   "page": 8
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 91 continues on page 9",
+   "article": 91,
+   "page": 9
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 98 continues on page 10",
+   "article": 98,
+   "page": 10
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 104 continues on page 11",
+   "article": 104,
+   "page": 11
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 112 continues on page 12",
+   "article": 112,
+   "page": 12
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 120 continues on page 13",
+   "article": 120,
+   "page": 13
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 127 continues on page 14",
+   "article": 127,
+   "page": 14
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 133 continues on page 15",
+   "article": 133,
+   "page": 15
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 141 continues on page 16",
+   "article": 141,
+   "page": 16
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 148 continues on page 17",
+   "article": 148,
+   "page": 17
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 154 continues on page 18",
+   "article": 154,
+   "page": 18
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 161 continues on page 19",
+   "article": 161,
+   "page": 19
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 167 continues on page 20",
+   "article": 167,
+   "page": 20
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 173 continues on page 21",
+   "article": 173,
+   "page": 21
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 179 continues on page 22",
+   "article": 179,
+   "page": 22
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 187 continues on page 23",
+   "article": 187,
+   "page": 23
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 195 continues on page 24",
+   "article": 195,
+   "page": 24
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 203 continues on page 25",
+   "article": 203,
+   "page": 25
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 209 continues on page 26",
+   "article": 209,
+   "page": 26
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 217 continues on page 27",
+   "article": 217,
+   "page": 27
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 222 continues on page 28",
+   "article": 222,
+   "page": 28
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 229 continues on page 29",
+   "article": 229,
+   "page": 29
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 237 continues on page 30",
+   "article": 237,
+   "page": 30
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 243 continues on page 31",
+   "article": 243,
+   "page": 31
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 255 continues on page 33",
+   "article": 255,
+   "page": 33
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 260 continues on page 34",
+   "article": 260,
+   "page": 34
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 266 continues on page 35",
+   "article": 266,
+   "page": 35
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 273 continues on page 36",
+   "article": 273,
+   "page": 36
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 278 continues on page 37",
+   "article": 278,
+   "page": 37
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 286 continues on page 38",
+   "article": 286,
+   "page": 38
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 293 continues on page 39",
+   "article": 293,
+   "page": 39
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 301 continues on page 40",
+   "article": 301,
+   "page": 40
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 309 continues on page 41",
+   "article": 309,
+   "page": 41
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 317 continues on page 42",
+   "article": 317,
+   "page": 42
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 336 continues on page 45",
+   "article": 336,
+   "page": 45
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 343 continues on page 46",
+   "article": 343,
+   "page": 46
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 355 continues on page 48",
+   "article": 355,
+   "page": 48
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 360 continues on page 49",
+   "article": 360,
+   "page": 49
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 367 continues on page 50",
+   "article": 367,
+   "page": 50
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 375 continues on page 51",
+   "article": 375,
+   "page": 51
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 387 continues on page 53",
+   "article": 387,
+   "page": 53
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 421 continues on page 54",
+   "article": 421,
+   "page": 54
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 428 continues on page 55",
+   "article": 428,
+   "page": 55
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 434 continues on page 56",
+   "article": 434,
+   "page": 56
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 440 continues on page 57",
+   "article": 440,
+   "page": 57
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 444 continues on page 58",
+   "article": 444,
+   "page": 58
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 450 continues on page 59",
+   "article": 450,
+   "page": 59
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 458 continues on page 60",
+   "article": 458,
+   "page": 60
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 466 continues on page 61",
+   "article": 466,
+   "page": 61
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 473 continues on page 62",
+   "article": 473,
+   "page": 62
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 491 continues on page 64",
+   "article": 491,
+   "page": 64
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 500 continues on page 65",
+   "article": 500,
+   "page": 65
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 504 continues on page 66",
+   "article": 504,
+   "page": 66
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 511 continues on page 67",
+   "article": 511,
+   "page": 67
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 516 continues on page 68",
+   "article": 516,
+   "page": 68
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 522 continues on page 69",
+   "article": 522,
+   "page": 69
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 527 continues on page 70",
+   "article": 527,
+   "page": 70
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 532 continues on page 71",
+   "article": 532,
+   "page": 71
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 545 continues on page 73",
+   "article": 545,
+   "page": 73
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 553 continues on page 74",
+   "article": 553,
+   "page": 74
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 563 continues on page 75",
+   "article": 563,
+   "page": 75
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 567 continues on page 76",
+   "article": 567,
+   "page": 76
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 571 continues on page 77",
+   "article": 571,
+   "page": 77
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 576 continues on page 78",
+   "article": 576,
+   "page": 78
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 584 continues on page 79",
+   "article": 584,
+   "page": 79
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 597 continues on page 81",
+   "article": 597,
+   "page": 81
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 603 continues on page 82",
+   "article": 603,
+   "page": 82
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 608 continues on page 83",
+   "article": 608,
+   "page": 83
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 615 continues on page 84",
+   "article": 615,
+   "page": 84
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 624 continues on page 85",
+   "article": 624,
+   "page": 85
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 632 continues on page 86",
+   "article": 632,
+   "page": 86
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 639 continues on page 87",
+   "article": 639,
+   "page": 87
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 651 continues on page 89",
+   "article": 651,
+   "page": 89
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 658 continues on page 90",
+   "article": 658,
+   "page": 90
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 662 continues on page 91",
+   "article": 662,
+   "page": 91
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 671 continues on page 93",
+   "article": 671,
+   "page": 93
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 676 continues on page 94",
+   "article": 676,
+   "page": 94
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 681 continues on page 95",
+   "article": 681,
+   "page": 95
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 685 continues on page 96",
+   "article": 685,
+   "page": 96
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 690 continues on page 97",
+   "article": 690,
+   "page": 97
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 695 continues on page 98",
+   "article": 695,
+   "page": 98
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 701 continues on page 99",
+   "article": 701,
+   "page": 99
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 707 continues on page 100",
+   "article": 707,
+   "page": 100
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 714 continues on page 101",
+   "article": 714,
+   "page": 101
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 720 continues on page 102",
+   "article": 720,
+   "page": 102
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 727 continues on page 103",
+   "article": 727,
+   "page": 103
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 750 continues on page 106",
+   "article": 750,
+   "page": 106
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 756 continues on page 107",
+   "article": 756,
+   "page": 107
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 760 continues on page 108",
+   "article": 760,
+   "page": 108
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 765 continues on page 109",
+   "article": 765,
+   "page": 109
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 771 continues on page 110",
+   "article": 771,
+   "page": 110
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 781 continues on page 111",
+   "article": 781,
+   "page": 111
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 788 continues on page 112",
+   "article": 788,
+   "page": 112
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 797 continues on page 113",
+   "article": 797,
+   "page": 113
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 803 continues on page 114",
+   "article": 803,
+   "page": 114
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 811 continues on page 115",
+   "article": 811,
+   "page": 115
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 829 continues on page 118",
+   "article": 829,
+   "page": 118
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 834 continues on page 119",
+   "article": 834,
+   "page": 119
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 841 continues on page 120",
+   "article": 841,
+   "page": 120
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 846 continues on page 121",
+   "article": 846,
+   "page": 121
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 852 continues on page 122",
+   "article": 852,
+   "page": 122
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 857 continues on page 123",
+   "article": 857,
+   "page": 123
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 864 continues on page 124",
+   "article": 864,
+   "page": 124
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 869 continues on page 125",
+   "article": 869,
+   "page": 125
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 882 continues on page 127",
+   "article": 882,
+   "page": 127
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 888 continues on page 128",
+   "article": 888,
+   "page": 128
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 893 continues on page 129",
+   "article": 893,
+   "page": 129
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 901 continues on page 130",
+   "article": 901,
+   "page": 130
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 908 continues on page 131",
+   "article": 908,
+   "page": 131
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 916 continues on page 132",
+   "article": 916,
+   "page": 132
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 923 continues on page 133",
+   "article": 923,
+   "page": 133
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 928 continues on page 134",
+   "article": 928,
+   "page": 134
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 936 continues on page 135",
+   "article": 936,
+   "page": 135
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 954 continues on page 138",
+   "article": 954,
+   "page": 138
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 975 continues on page 141",
+   "article": 975,
+   "page": 141
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 981 continues on page 142",
+   "article": 981,
+   "page": 142
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 988 continues on page 143",
+   "article": 988,
+   "page": 143
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 993 continues on page 144",
+   "article": 993,
+   "page": 144
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1002 continues on page 145",
+   "article": 1002,
+   "page": 145
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1010 continues on page 146",
+   "article": 1010,
+   "page": 146
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1016 continues on page 147",
+   "article": 1016,
+   "page": 147
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1022 continues on page 148",
+   "article": 1022,
+   "page": 148
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1027 continues on page 149",
+   "article": 1027,
+   "page": 149
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1034 continues on page 150",
+   "article": 1034,
+   "page": 150
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1039 continues on page 151",
+   "article": 1039,
+   "page": 151
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1051 continues on page 153",
+   "article": 1051,
+   "page": 153
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1058 continues on page 154",
+   "article": 1058,
+   "page": 154
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1063 continues on page 155",
+   "article": 1063,
+   "page": 155
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1066 continues on page 156",
+   "article": 1066,
+   "page": 156
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1071 continues on page 157",
+   "article": 1071,
+   "page": 157
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1079 continues on page 158",
+   "article": 1079,
+   "page": 158
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1085 continues on page 159",
+   "article": 1085,
+   "page": 159
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1091 continues on page 160",
+   "article": 1091,
+   "page": 160
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1096 continues on page 161",
+   "article": 1096,
+   "page": 161
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1104 continues on page 162",
+   "article": 1104,
+   "page": 162
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1110 continues on page 163",
+   "article": 1110,
+   "page": 163
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1115 continues on page 164",
+   "article": 1115,
+   "page": 164
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1120 continues on page 165",
+   "article": 1120,
+   "page": 165
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1127 continues on page 166",
+   "article": 1127,
+   "page": 166
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1134 continues on page 167",
+   "article": 1134,
+   "page": 167
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1140 continues on page 168",
+   "article": 1140,
+   "page": 168
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1143 continues on page 169",
+   "article": 1143,
+   "page": 169
+  },
+  {
+   "level": "info",
+   "code": "PAGE_BREAK",
+   "message": "Article 1146 continues on page 170",
+   "article": 1146,
+   "page": 170
+  },
+  {
+   "level": "info",
+   "code": "HEADING_NO_ARABIC",
+   "message": "part 'Real Rights' has no Arabic title",
+   "page": 113
+  },
+  {
+   "level": "info",
+   "code": "PART_TITLE_FROM_OFFICIAL",
+   "message": "Part 2: ar title not in the PDF, taken from the official structure (https://qadaya.net/?p=6648)",
+   "page": 113
+  },
+  {
+   "level": "info",
+   "code": "DIGITS_FROM_TEXT_LAYER",
+   "message": "PDF displays ٩١١١ reversed; the English confirms the stored order (٩١١١→١١١٩)",
+   "article": 247
+  },
+  {
+   "level": "info",
+   "code": "DIGITS_FROM_TEXT_LAYER",
+   "message": "PDF displays ٣٥٢ reversed; the English confirms the stored order (٣٥٢→٢٥٣)",
+   "article": 261
+  },
+  {
+   "level": "info",
+   "code": "DIGITS_FROM_TEXT_LAYER",
+   "message": "PDF displays ٥٣٢ reversed; the English confirms the stored order (٥٣٢→٢٣٥)",
+   "article": 264
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 5,
+   "page": 1
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…نازع القوانين مبادئ القانون الدولي الخاص'",
+   "article": 24,
+   "page": 4
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 53,
+   "page": 7
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 121,
+   "page": 13
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…م بتسليم الشئ والمحافظة عليه حتى التسليم'",
+   "article": 206,
+   "page": 25
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…ام التنفيذ، إذا سمحت بهذا طبيعة الإلتزام'",
+   "article": 210,
+   "page": 26
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 220,
+   "page": 27
+  },
+  {
+   "level": "warning",
+   "code": "CUT_OFF_AR",
+   "message": "spans a page break and does not end a sentence: '…بالغا فيها وذلك كله بقصد الإضرار بدائنيه'",
+   "article": 260,
+   "page": 33
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 260,
+   "page": 33
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 261,
+   "page": 34
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 0 in Arabic, 3 in English (one side runs them inline)",
+   "article": 273,
+   "page": 35
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 273,
+   "page": 35
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…مدين متضامن أخر، إلا بقدر حصة هذا المدين'",
+   "article": 287,
+   "page": 38
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 300,
+   "page": 39
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_EN",
+   "message": "no final period (source style): '… valid without the consent of the debtor'",
+   "article": 303,
+   "page": 40
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 326,
+   "page": 43
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…ان متفقا على أن الوفاء يكون للدائن شخصيا'",
+   "article": 332,
+   "page": 44
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 352,
+   "page": 47
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 357,
+   "page": 48
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 364,
+   "page": 49
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…شان جميعا، ويعتبر اتحاد الذمة كان لم يكن'",
+   "article": 370,
+   "page": 50
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 2 in Arabic, 0 in English (one side runs them inline)",
+   "article": 378,
+   "page": 51
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '… كان تحديد الثمن موقوفا على تقدير المبيع'",
+   "article": 429,
+   "page": 55
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…لبيع ، وأما أن يبقي البيع مع إنقاص الثمن'",
+   "article": 438,
+   "page": 56
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 2 in Arabic, 0 in English (one side runs them inline)",
+   "article": 443,
+   "page": 57
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 443,
+   "page": 57
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 470,
+   "page": 61
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '… قد كسب بعوض حقا عينيا على العين المبيعة'",
+   "article": 478,
+   "page": 62
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '… مسئولا إلا عن فعله العمد أو خطئه الجسيم'",
+   "article": 496,
+   "page": 64
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 501,
+   "page": 65
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 502,
+   "page": 65
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…ون من الإدارة وكل اتفاق على غير ذلك باطل'",
+   "article": 519,
+   "page": 68
+  },
+  {
+   "level": "warning",
+   "code": "LENGTH_RATIO",
+   "message": "Arabic/English length ratio 0.32 outside [0.35, 1.6]: one side may be incomplete",
+   "article": 519,
+   "page": 68
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 547,
+   "page": 73
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): 'لا يثبت الصلح إلا بالكتابة أو بمحضر رسمي'",
+   "article": 552,
+   "page": 73
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 563,
+   "page": 74
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…ذا التدخل، على أن يتكفل بما ينفقه المؤجر'",
+   "article": 581,
+   "page": 78
+  },
+  {
+   "level": "info",
+   "code": "PARENS_UNBALANCED_EN",
+   "message": "unbalanced parentheses in the English",
+   "article": 597,
+   "page": 80
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…دة ٥٦٣، ويقع باطلاً كل اتفاق على غير ذلك'",
+   "article": 609,
+   "page": 83
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 3 in Arabic, 0 in English (one side runs them inline)",
+   "article": 644,
+   "page": 87
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…دى عملا لقاء أجر يتعهد به المتعاقد الآخر'",
+   "article": 646,
+   "page": 88
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '… القوانين واللوائح الإدارية على خلاف ذلك'",
+   "article": 677,
+   "page": 94
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 4 in Arabic, 0 in English (one side runs them inline)",
+   "article": 685,
+   "page": 95
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 2 in Arabic, 0 in English (one side runs them inline)",
+   "article": 686,
+   "page": 96
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '… ظهر من العقد أن الأجل عين لمصلحة المودع'",
+   "article": 722,
+   "page": 102
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…قدر الذى لا تتعارض فيه مع الأحكام الآتية'",
+   "article": 733,
+   "page": 104
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 2 in Arabic, 0 in English (one side runs them inline)",
+   "article": 761,
+   "page": 108
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…ملحقاته ما لم يوجد نص أو اتفاق يخالف ذلك'",
+   "article": 804,
+   "page": 114
+  },
+  {
+   "level": "warning",
+   "code": "CUT_OFF_AR",
+   "message": "does not end a sentence: '…تلاصقة، وتكون نفقات التجديد شركة بينهما،'",
+   "article": 813,
+   "page": 115
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…شركاء مجتمعين ما لم يوجد اتفاق يخالف ذلك'",
+   "article": 827,
+   "page": 117
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…ل نصيبه عينا، عوض بمعدل عما نقص من نصيبه'",
+   "article": 837,
+   "page": 119
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…ضى مد هذا الميعاد إذا وجدت ظروف تبرر ذلك'",
+   "article": 887,
+   "page": 127
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…بينهم أعلى قيمة بحيث لا تقل عن ثمن المثل'",
+   "article": 906,
+   "page": 130
+  },
+  {
+   "level": "warning",
+   "code": "CUT_OFF_AR",
+   "message": "spans a page break and does not end a sentence: '…ن القيمة نصف ثمن الأرض المبيعة على الأقل'",
+   "article": 936,
+   "page": 134
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 5 in Arabic, 0 in English (one side runs them inline)",
+   "article": 936,
+   "page": 134
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…ادة.\n(٢) ولا يجوز للوقوف أن يأخذ بالشفعة'",
+   "article": 939,
+   "page": 135
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 3 in Arabic, 0 in English (one side runs them inline)",
+   "article": 939,
+   "page": 135
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 2 in Arabic, 0 in English (one side runs them inline)",
+   "article": 941,
+   "page": 136
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 3 in Arabic, 0 in English (one side runs them inline)",
+   "article": 948,
+   "page": 137
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…تعدي يكون للوزير المختص حق أزالته إداريا'",
+   "article": 970,
+   "page": 140
+  },
+  {
+   "level": "warning",
+   "code": "LENGTH_RATIO",
+   "message": "Arabic/English length ratio 3.73 outside [0.35, 1.6]: one side may be incomplete",
+   "article": 970,
+   "page": 140
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…ترد هذا الشيء أن يجعل له الثمن الذى دفعه'",
+   "article": 977,
+   "page": 141
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '… شأنها الأحكام المبينة فى المواد السابقة'",
+   "article": 1012,
+   "page": 146
+  },
+  {
+   "level": "warning",
+   "code": "LENGTH_RATIO",
+   "message": "Arabic/English length ratio 1.89 outside [0.35, 1.6]: one side may be incomplete",
+   "article": 1021,
+   "page": 147
+  },
+  {
+   "level": "warning",
+   "code": "EMPTY_TEXT_AR",
+   "message": "no Arabic text",
+   "article": 1022,
+   "page": 147
+  },
+  {
+   "level": "warning",
+   "code": "AR_NUMBER_MISSING",
+   "message": "no 'مادة (n)' found in the Arabic cell",
+   "article": 1022,
+   "page": 147
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…يد المدين ما لم يوجد اتفاق يقضى بغير ذلك'",
+   "article": 1050,
+   "page": 152
+  },
+  {
+   "level": "warning",
+   "code": "LENGTH_RATIO",
+   "message": "Arabic/English length ratio 0.33 outside [0.35, 1.6]: one side may be incomplete",
+   "article": 1060,
+   "page": 154
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 4 in Arabic, 0 in English (one side runs them inline)",
+   "article": 1065,
+   "page": 155
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 5 in Arabic, 0 in English (one side runs them inline)",
+   "article": 1089,
+   "page": 159
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 5 in Arabic, 0 in English (one side runs them inline)",
+   "article": 1111,
+   "page": 163
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 3 in Arabic, 0 in English (one side runs them inline)",
+   "article": 1113,
+   "page": 163
+  },
+  {
+   "level": "warning",
+   "code": "CUT_OFF_AR",
+   "message": "spans a page break and does not end a sentence: '…يكون ضروريا إذا جدد الإيجار تجديدا ضمنيا'",
+   "article": 1115,
+   "page": 163
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…ن هذه الالتزامات إذا هو تخلى عن حق الرهن'",
+   "article": 1116,
+   "page": 164
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…ء المرهون ولو كان ذلك لاحقا لتاريخ الرهن'",
+   "article": 1118,
+   "page": 164
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…لخاصة فتكون مقصورة على منقول أو عقار معي'",
+   "article": 1132,
+   "page": 166
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '…الأموال على تلك أنفقت فى إجراءات التوزيع'",
+   "article": 1138,
+   "page": 167
+  },
+  {
+   "level": "info",
+   "code": "LIST_FORMAT_DIFFERS",
+   "message": "list items: 3 in Arabic, 0 in English (one side runs them inline)",
+   "article": 1141,
+   "page": 168
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_EN",
+   "message": "no final period (source style): '… is fixed by the date of its inscription'",
+   "article": 1149,
+   "page": 170
+  },
+  {
+   "level": "info",
+   "code": "NO_FINAL_PERIOD_AR",
+   "message": "no final period (source style): '… هذا الامتياز، وتكون مرتبته من وقت القيد'",
+   "article": 1149,
+   "page": 170
+  }
+ ],
+ "elapsed_s": 3.16
+}

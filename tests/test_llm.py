@@ -50,6 +50,13 @@ def test_prompt_marks_repealed_articles():
     assert "A gift of future property is void." in msg
 
 
+def test_prompt_gives_the_repeal_note_for_repealed_articles():
+    repealed = {"article_number": 60, "is_repealed": True, "text_ar": "", "text_en": "",
+                "repeal_note": "Articles 54-80 have been repealed by Presidential Decree.", "repeal_note_ar": "ألغيت"}
+    msg = build_user_message("What does Article 60 say?", [repealed])
+    assert "[Article 60] (REPEALED)\nألغيت\nArticles 54-80 have been repealed by Presidential Decree." in msg
+
+
 # --- OpenAI-compatible backend (Bedrock endpoint and vLLM) --------------------
 
 

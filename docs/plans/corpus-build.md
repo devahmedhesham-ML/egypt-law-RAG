@@ -1,6 +1,41 @@
 # Plan: Civil Code PDF → one record and one chunk per article
 
-Status: proposed, not implemented. Revised after testing on PDF pages 1–11.
+Status: **implemented** (`src/rag/corpus`, `src/rag/ingest`, `dvc.yaml`). The plan below was revised after testing on PDF pages 1–11; the "As built" section records where the full PDF changed it.
+
+## As built
+**Result.** `dvc repro` builds 1,149 records (1,093 live, 56 repealed) in ~3.5 s and indexes them in ~30 s. All four smoke queries (two Arabic, two English) return the expected article first, with 10 distinct articles in every top 10.
+
+**Extraction became a hybrid.** "One table row = one article" holds almost everywhere but breaks in a few places:
+- "SECOND PART" (p. 113) sits outside the table grid;
+- "Article1022" (p. 147) sits outside the grid, and its English continues outside it at the top of p. 148;
+- p. 147's table splits into one row per line.
+
+So each column is read top to bottom, including text outside the grid in position order, and split on its own markers ("Article N", "مادة (n)"). The two sides are joined by article number. Table rows are kept as a cross-check (an article's two markers should share a row) and as a guard:
+- An English "Article N" never starts an article mid-row, because English cross-references look identical.
+- An Arabic "مادة" may start the very next article mid-row, because Arabic cross-references read "المادة".
+- Text outside the grid before the first table is skipped (the promulgation law, which has its own "مادة ١").
+
+**Part 2 correction (supersedes the rule below).** The PDF *does* print "SECOND PART" (outside the grid) and "REAL RIGHTS" (in the table). Only the Arabic title is missing, and that alone is filled from the official structure.
+
+**More Arabic repairs found on the full PDF:**
+- **Digit order.** Word stored some numbers correctly but displays them reversed (p. 34 shows "٥٣٢" for Article 235), and others the other way round (article markers). Where the displayed and stored orders differ, the one the English text of the same article confirms wins; this happened 3 times.
+- **Private-use ligatures.** The Arabic font maps four "…ه" ligatures to private-use code points: U+E811 لمه, U+E812 به, U+E814 ته, U+E815 نه. That's 25 occurrences, all mapped back to letters.
+- **Unbolded headings.** Some Arabic headings are not bold ("بيع التركة"), so heading titles are taken from the whole row above that row's Arabic marker.
+
+**Checks are warnings, never failures.** The 11 warnings left are all defects in the source PDF, reviewed by hand:
+
+| Article | Warning | Cause in the PDF |
+|---|---|---|
+| 1022 | no Arabic text, no Arabic marker | no "مادة ١٠٢٢" printed; its Arabic sits inside Article 1021's cell (hence 1021's length ratio and the gap before 1023) |
+| 519 | length ratio 0.32 | the Arabic omits a clause the English has |
+| 970 | length ratio 3.73 | the Arabic carries a later amendment the English lacks |
+| 1060 | length ratio 0.33 | Arabic much shorter than the English |
+| 260, 936, 1115 | cut off at a page break | no final period in the Arabic across the page break |
+| 813 | ends on a comma | the Arabic ends mid-clause |
+
+A single-page article without a final period is a note, not a warning (source style, 33 cases). Reference articles 43, 44, 88 and 89 (transcribed from screenshots) and 492 match word for word.
+
+**Indexing.** The chunk is heading path + "Article N | مادة N" + Arabic + English, as planned. On an RTX 4070 Ti SUPER, one embedding replica with 4,096-token batches is fastest (8.8 s, 33.9k tokens/s, 4.7 GB). Four replicas are slower (10.1 s, 11.9 GB), because one already keeps the GPU ~91% busy. Auto mode therefore adds replicas only when they fit in memory **and** the GPU has idle compute.
 
 ## Context
 Handbook Step 0 for Project 2: the PDF is raw input, not the corpus. Every later stage depends on a structured, citable corpus: retrieval, `/ask` citations, RAGAS, and the test console (which switches from its 19-article sample to `data/processed/articles.json` automatically).
@@ -56,7 +91,7 @@ Rules found by dumping all 221 heading rows:
 - A keyword may sit alone with its title in the next row (`Section II` p46 → title p47) or on the same line (`Section I The Right of Ownership in General`).
 - A new level resets all levels below it.
 - Wrapped English titles ("…without an / Owner") are joined when the Arabic cell has fewer lines; otherwise the second line is the next level (topic + subtopic in one row, e.g. `1. Elements of Contracts / Consent:`).
-- **Part 2 is added from the official structure.** The PDF has no "SECOND PART" heading, but the official text puts Books III–IV under **القسم الثاني: الحقوق العينية** (Real Rights), per [qadaya.net part 3](https://qadaya.net/?p=6646) and [part 4](https://qadaya.net/?p=6648). So from `BOOK III` on: `part_number = 2`, `part_title_en = "Real Rights"`, `part_title_ar = "الحقوق العينية"`. The build report records this as a correction not present in the PDF.
+- **Part 2** (corrected in "As built" above: the PDF prints "SECOND PART / REAL RIGHTS", outside the table grid, so table-row extraction missed it). The official text puts Books III–IV under **القسم الثاني: الحقوق العينية** (Real Rights), per [qadaya.net part 3](https://qadaya.net/?p=6646) and [part 4](https://qadaya.net/?p=6648). Only the Arabic title "الحقوق العينية" is taken from there; the build report records it.
 
 Prototype over the whole PDF: 1,087 articles tagged; no level ends up with a number but no title. Articles 89, 147, 418, 492 and 1149 come out as expected.
 

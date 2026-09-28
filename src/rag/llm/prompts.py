@@ -31,7 +31,10 @@ def format_articles(articles: Sequence[Article]) -> str:
     blocks = []
     for a in articles:
         header = f"[Article {a['article_number']}]" + (" (REPEALED)" if a.get("is_repealed") else "")
-        body = "\n".join(t for t in (a.get("text_ar", ""), a.get("text_en", "")) if t)
+        texts = (a.get("text_ar", ""), a.get("text_en", ""))
+        if a.get("is_repealed"):  # the note says how it was repealed ("by Presidential Decree")
+            texts = (a.get("repeal_note_ar") or "", a.get("repeal_note") or "")
+        body = "\n".join(t for t in texts if t)
         blocks.append(f"{header}\n{body}")
     return "\n\n".join(blocks)
 

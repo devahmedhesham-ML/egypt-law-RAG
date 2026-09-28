@@ -28,6 +28,10 @@ def client(monkeypatch, tmp_path):
     monkeypatch.setattr(server, "backend_for", lambda name: fake)
     monkeypatch.setattr(data, "FEEDBACK_PATH", tmp_path / "feedback.jsonl")
     monkeypatch.setattr(status, "FEEDBACK_PATH", tmp_path / "feedback.jsonl")
+    # No built corpus unless a test writes one: independent of data/processed on this machine.
+    for module in (data, status):
+        monkeypatch.setattr(module, "CORPUS_PATH", tmp_path / "articles.json")
+    monkeypatch.setattr(data, "REPORT_PATH", tmp_path / "corpus_report.json")
     # Skip live network checks (Bedrock endpoint, vLLM server).
     monkeypatch.setattr(status, "_LIVE", [status._source_pdf, status._corpus, status._retrieval])
     return TestClient(server.app)
@@ -45,6 +49,22 @@ def test_articles_fall_back_to_sample_fixture(client):
     assert body["source"] == "sample"
     assert 492 in numbers and 505 in numbers
     assert any(a.get("is_repealed") for a in body["articles"])
+
+
+def test_built_corpus_replaces_the_sample_and_exposes_its_warnings(client, tmp_path):
+    record = {"article_number": 492, "section_title_en": "Gifts", "topic_title_en": "Elements of a Gift",
+              "text_ar": "تقع هبة الأموال المستقبلة باطلة.", "text_en": "A gift of future property is void.",
+              "is_repealed": False}
+    (tmp_path / "articles.json").write_text(json.dumps([record], ensure_ascii=False), encoding="utf-8")
+    body = client.get("/api/articles").json()
+    assert body["source"] == "corpus" and body["articles"][0]["topic"] == "Gifts: Elements of a Gift"
+    assert client.get("/api/corpus/report").json() == {"built": False}
+    report = {"generated_at": "t", "counts": {"warnings": 1},
+              "issues": [{"level": "warning", "code": "CUT_OFF_AR", "message": "m", "article": 492},
+                         {"level": "info", "code": "PAGE_BREAK", "message": "m"}]}
+    (tmp_path / "corpus_report.json").write_text(json.dumps(report), encoding="utf-8")
+    got = client.get("/api/corpus/report").json()
+    assert got["built"] and [w["code"] for w in got["warnings"]] == ["CUT_OFF_AR"]
 
 
 def test_status_lists_planned_stages(client):

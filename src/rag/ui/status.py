@@ -12,10 +12,11 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 
 import httpx
+import yaml
 from openai import OpenAI
 
 from rag.llm.factory import load_llm_params
-from rag.ui.data import CORPUS_PATH, FEEDBACK_PATH, SOURCE_PDF, load_articles
+from rag.ui.data import CORPUS_PATH, FEEDBACK_PATH, REPO_ROOT, SOURCE_PDF, load_articles, load_report
 
 WORKING, OFFLINE, PLANNED = "working", "offline", "planned"
 
@@ -39,22 +40,46 @@ def _source_pdf() -> Stage:
 def _corpus() -> Stage:
     if CORPUS_PATH.exists():
         n = len(load_articles().articles)
-        return Stage("corpus", "Data", "Structured corpus", WORKING, f"{n} articles in data/processed/articles.json.")
+        report = load_report() or {}
+        warnings = report.get("counts", {}).get("warnings")
+        extra = f" {warnings} build warnings to review (Corpus view)." if warnings else ""
+        return Stage("corpus", "Data", "Structured corpus", WORKING,
+                     f"{n:,} articles in data/processed/articles.json, bilingual numbered hierarchy.{extra}")
     n = len(load_articles().articles)
     return Stage(
         "corpus", "Data", "Structured corpus", PLANNED,
         f"PDF to one JSON record per article, as a DVC stage with validation tests. "
         f"The console uses a {n}-article sample fixture meanwhile.",
-        "TASKS: Corpus",
+        "python -m rag.corpus.build",
     )
+
+
+def _index() -> Stage:
+    cfg = yaml.safe_load((REPO_ROOT / "params.yaml").read_text(encoding="utf-8"))["ingest"]
+    title = "Vector index (Chroma)"
+    if not CORPUS_PATH.exists():
+        return Stage("index", "Retrieval", title, PLANNED, "Needs the structured corpus first.",
+                     "python -m rag.corpus.build, then python -m rag.ingest")
+    from rag.ingest.store import collection_name, index_count
+
+    count = index_count(REPO_ROOT / cfg["index_dir"], collection_name(cfg["collection"], cfg["model"]))
+    corpus_n = len(load_articles().articles)
+    if count is None:
+        return Stage("index", "Retrieval", title, OFFLINE, "No index yet.", "python -m rag.ingest")
+    if count != corpus_n:
+        return Stage("index", "Retrieval", title, OFFLINE,
+                     f"Index holds {count:,} articles, the corpus {corpus_n:,}: it is stale.", "python -m rag.ingest")
+    return Stage("index", "Retrieval", title, WORKING,
+                 f"{count:,} articles, one bilingual chunk each, embedded with {cfg['model']}.")
 
 
 def _retrieval() -> Stage:
     if importlib.util.find_spec("rag.retrieval"):
-        return Stage("retrieval", "Retrieval", "Embeddings + vector search", WORKING, "rag.retrieval is installed.")
+        return Stage("retrieval", "Retrieval", "Retrieval in the answer path", WORKING, "rag.retrieval is installed.")
     return Stage(
-        "retrieval", "Retrieval", "Embeddings + vector search", PLANNED,
-        "Multilingual embeddings in Chroma, one chunk per article. Until then you pick the context articles by hand.",
+        "retrieval", "Retrieval", "Retrieval in the answer path", PLANNED,
+        "Search the index for each question and pass the top articles to the model. "
+        "Until then you pick the context articles by hand in Ask and Compare.",
         "TASKS: Retrieval",
     )
 
@@ -111,7 +136,7 @@ def _static() -> list[Stage]:
     ]
 
 
-_LIVE: list[Callable[[], Stage]] = [_source_pdf, _corpus, _retrieval, _bedrock, _vllm]
+_LIVE: list[Callable[[], Stage]] = [_source_pdf, _corpus, _index, _retrieval, _bedrock, _vllm]
 
 
 def collect_status() -> list[dict]:

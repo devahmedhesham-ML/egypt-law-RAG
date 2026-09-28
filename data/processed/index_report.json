@@ -1,0 +1,156 @@
+{
+ "generated_at": "2026-09-28T13:10:15+00:00",
+ "model": "Qwen/Qwen3-Embedding-0.6B",
+ "collection": "civil_code__qwen3-embedding-0.6b",
+ "index_dir": "data/index/chroma",
+ "count": 1149,
+ "dimensions": 1024,
+ "normalize_arabic": false,
+ "corpus_articles_sha256": "7b00bde89b9b58e60e7bcac5cd527cfa0fc3e77dc893d0b876d4d2f1a1ed4906",
+ "chunks": {
+  "count": 1149,
+  "tokens_total": 298034,
+  "tokens_max": 1091,
+  "tokens_median": 240
+ },
+ "embedding": {
+  "device": "cuda",
+  "gpu": "NVIDIA GeForce RTX 4070 Ti SUPER",
+  "replicas": 1,
+  "per_replica_mb": 2124,
+  "free_before_mb": 13770,
+  "margin_mb": 2048,
+  "peak_used_mb": 4712,
+  "total_mb": 16376,
+  "batches": 77,
+  "tokens_per_batch": 4096,
+  "texts": 1149,
+  "tokens": 298034,
+  "load_s": 5.0,
+  "embed_s": 9.12,
+  "total_s": 15.35,
+  "tokens_per_s": 32679.2,
+  "texts_per_s": 125.99
+ },
+ "smoke": [
+  {
+   "query": "At what age does a person reach legal majority?",
+   "expected": 44,
+   "rank": 1,
+   "top": [
+    44,
+    46,
+    112,
+    45,
+    42,
+    6,
+    48,
+    109,
+    110,
+    518
+   ],
+   "scores": [
+    0.6928,
+    0.6305,
+    0.5254,
+    0.4971,
+    0.4471,
+    0.4441,
+    0.4344,
+    0.4251,
+    0.4175,
+    0.4023
+   ]
+  },
+  {
+   "query": "ما حكم هبة الأموال المستقبلة؟",
+   "expected": 492,
+   "rank": 1,
+   "top": [
+    492,
+    487,
+    489,
+    486,
+    778,
+    490,
+    491,
+    494,
+    131,
+    499
+   ],
+   "scores": [
+    0.7469,
+    0.5629,
+    0.5612,
+    0.5587,
+    0.5583,
+    0.5573,
+    0.5495,
+    0.5492,
+    0.5275,
+    0.525
+   ]
+  },
+  {
+   "query": "How does the Civil Code define a partnership?",
+   "expected": 505,
+   "rank": 1,
+   "top": [
+    505,
+    532,
+    506,
+    508,
+    537,
+    515,
+    507,
+    522,
+    509,
+    525
+   ],
+   "scores": [
+    0.5742,
+    0.5319,
+    0.5248,
+    0.5225,
+    0.5181,
+    0.5165,
+    0.5151,
+    0.5117,
+    0.5027,
+    0.5023
+   ]
+  },
+  {
+   "query": "هل يجوز للزوج الرجوع في هبته لزوجته؟",
+   "expected": 502,
+   "rank": 1,
+   "top": [
+    502,
+    501,
+    500,
+    37,
+    503,
+    13,
+    14,
+    12,
+    489,
+    15
+   ],
+   "scores": [
+    0.5586,
+    0.508,
+    0.4894,
+    0.4819,
+    0.4652,
+    0.4492,
+    0.4406,
+    0.4402,
+    0.4181,
+    0.3973
+   ]
+  }
+ ],
+ "smoke_top1": 4,
+ "warnings": 11,
+ "elapsed_s": 29.64
+}

@@ -87,6 +87,20 @@ def articles() -> dict:
     return {"source": s.source, "note": s.note, "articles": s.articles}
 
 
+@app.get("/api/corpus/report")
+def corpus_report() -> dict:
+    """Build counts and the warnings to review (notes are left out: they are expected quirks)."""
+    report = data.load_report()
+    if report is None:
+        return {"built": False}
+    return {
+        "built": True,
+        "generated_at": report.get("generated_at"),
+        "counts": report.get("counts", {}),
+        "warnings": [i for i in report.get("issues", []) if i.get("level") == "warning"],
+    }
+
+
 def _ndjson(event: dict) -> str:
     return json.dumps(event, ensure_ascii=False) + "\n"
 

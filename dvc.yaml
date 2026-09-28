@@ -1,0 +1,30 @@
+stages:
+  build_corpus:
+    desc: Civil Code PDF → one validated JSON record per article (bilingual, numbered hierarchy)
+    cmd: python -m rag.corpus.build
+    deps:
+      - data/raw/egyptian_civil_code.pdf
+      - src/rag/corpus
+    params:
+      - corpus
+    outs:
+      - data/processed/articles.json
+    metrics:
+      - data/processed/corpus_report.json:
+          cache: false
+
+  index:
+    desc: One bilingual chunk per article → Qwen3 embeddings on the GPU → Chroma
+    cmd: python -m rag.ingest --yes  # the build's warnings are recorded in corpus_report.json
+    deps:
+      - data/processed/articles.json
+      - src/rag/ingest
+      - src/rag/corpus/normalize.py
+      - src/rag/corpus/hierarchy.py
+    params:
+      - ingest
+    outs:
+      - data/index/chroma
+    metrics:
+      - data/processed/index_report.json:
+          cache: false

@@ -1,0 +1,95 @@
+schema: '2.0'
+stages:
+  build_corpus:
+    cmd: python -m rag.corpus.build
+    deps:
+    - path: data/raw/egyptian_civil_code.pdf
+      hash: md5
+      md5: 5086ef5f16f15d856278db943e58e948
+      size: 2599703
+      isexec: true
+    - path: src/rag/corpus
+      hash: md5
+      md5: 39e942cbd128834905ca01ad1995c584.dir
+      size: 164034
+      nfiles: 18
+    params:
+      params.yaml:
+        corpus:
+          pdf: data/raw/egyptian_civil_code.pdf
+          output: data/processed/articles.json
+          report: data/processed/corpus_report.json
+          first_article: 1
+          last_article: 1149
+          repealed:
+          - 54-80
+          - 389-417
+          line_merge_pt: 3.5
+          min_chars: 15
+          max_chars: 6000
+          ar_en_length_ratio:
+          - 0.35
+          - 1.6
+          part_corrections:
+          - starts_at_book: 3
+            number: 2
+            title_en: Real Rights
+            title_ar: الحقوق العينية
+            source: https://qadaya.net/?p=6648
+    outs:
+    - path: data/processed/articles.json
+      hash: md5
+      md5: 24ae8e0eb4eac90354aca3163d296691
+      size: 1962257
+      isexec: true
+    - path: data/processed/corpus_report.json
+      hash: md5
+      md5: 39a30e1eb3e6866ac4fc91bac5906631
+      size: 46582
+      isexec: true
+  index:
+    cmd: python -m rag.ingest --yes
+    deps:
+    - path: data/processed/articles.json
+      hash: md5
+      md5: 24ae8e0eb4eac90354aca3163d296691
+      size: 1962257
+      isexec: true
+    - path: src/rag/corpus/hierarchy.py
+      hash: md5
+      md5: 7165b5b10014d58fb711567e543c5fbe
+      size: 11901
+      isexec: true
+    - path: src/rag/corpus/normalize.py
+      hash: md5
+      md5: cd3367536e4aba678d7921268d01447a
+      size: 464
+      isexec: true
+    - path: src/rag/ingest
+      hash: md5
+      md5: da7d05572de2d67da18013d54cc98253.dir
+      size: 85402
+      nfiles: 10
+    params:
+      params.yaml:
+        ingest:
+          model: Qwen/Qwen3-Embedding-0.6B
+          collection: civil_code
+          index_dir: data/index/chroma
+          report: data/processed/index_report.json
+          normalize_arabic: false
+          max_chunk_tokens: 8192
+          tokens_per_batch: 4096
+          max_replicas: 4
+          vram_margin_gb: 2.0
+    outs:
+    - path: data/index/chroma
+      hash: md5
+      md5: 0fcda3e7ca639191b547673bff38e7ee.dir
+      size: 23622392
+      nfiles: 6
+    - path: data/processed/index_report.json
+      hash: md5
+      md5: e079c98b59fbafb3a9be8bd9c045b833
+      size: 2337
+      isexec: true

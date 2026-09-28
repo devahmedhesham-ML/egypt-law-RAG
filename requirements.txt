@@ -7,6 +7,11 @@ arabic-reshaper>=3.0   # fix disconnected Arabic glyphs
 python-bidi>=0.5       # fix reversed RTL text
 pyarabic>=0.6          # normalize diacritics, hamza and alef variants
 
+# --- Corpus build + ingestion tooling ---
+tqdm>=4.66             # progress bars (build, embedding, Chroma write)
+rich>=13.7             # summary and warning tables
+nvidia-ml-py>=12.535   # GPU memory/utilization for the replica planner (import pynvml)
+
 # --- Embeddings + vector DB ---
 sentence-transformers>=3.0   # multilingual embedding model (Arabic + English)
 chromadb>=0.5

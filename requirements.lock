@@ -580,7 +580,9 @@ nvidia-cusparse==12.6.3.3
 nvidia-cusparselt-cu13==0.8.1
     # via torch
 nvidia-ml-py==13.615.71
-    # via bentoml
+    # via
+    #   -r requirements.txt
+    #   bentoml
 nvidia-nccl-cu13==2.30.7
     # via torch
 nvidia-nvjitlink==13.4.92
@@ -917,6 +919,7 @@ rfc3987-syntax==1.1.0
     # via jsonschema
 rich==14.3.4
     # via
+    #   -r requirements.txt
     #   bentoml
     #   chromadb
     #   dvc
@@ -1050,6 +1053,7 @@ tornado==6.5.10
     # via kantoku
 tqdm==4.70.1
     # via
+    #   -r requirements.txt
     #   chromadb
     #   datasets
     #   dvc

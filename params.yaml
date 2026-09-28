@@ -8,3 +8,33 @@ llm:
   vllm:
     model: Qwen/Qwen2.5-7B-Instruct-AWQ
     base_url: http://localhost:8000/v1                        # overridden by VLLM_BASE_URL
+
+corpus:
+  pdf: data/raw/egyptian_civil_code.pdf
+  output: data/processed/articles.json
+  report: data/processed/corpus_report.json
+  first_article: 1
+  last_article: 1149
+  repealed: ["54-80", "389-417"]     # expected; the build warns if the PDF says otherwise
+  line_merge_pt: 3.5                 # chars within this vertical distance form one visual line
+  min_chars: 15                      # shorter live articles are flagged
+  max_chars: 6000                    # longer ones are flagged (likely two articles merged)
+  ar_en_length_ratio: [0.35, 1.6]    # len(text_ar) / len(text_en) outside this range is flagged
+  part_corrections:                  # official structure: fills a part (or part title) the PDF leaves out
+                                     # (the PDF prints "SECOND PART / REAL RIGHTS" but no Arabic title)
+    - starts_at_book: 3
+      number: 2
+      title_en: Real Rights
+      title_ar: الحقوق العينية
+      source: https://qadaya.net/?p=6648
+
+ingest:
+  model: Qwen/Qwen3-Embedding-0.6B
+  collection: civil_code
+  index_dir: data/index/chroma
+  report: data/processed/index_report.json
+  normalize_arabic: false            # strip tashkeel/tatweel and unify alef variants before embedding
+  max_chunk_tokens: 8192             # longer chunks are flagged (the model would truncate them)
+  tokens_per_batch: 4096             # padded tokens per GPU batch (length-sorted); fastest measured, see README
+  max_replicas: 4                    # upper bound; auto adds replicas only if they fit AND the GPU has idle cores
+  vram_margin_gb: 2.0                # free VRAM always left untouched (Windows, vLLM, others)

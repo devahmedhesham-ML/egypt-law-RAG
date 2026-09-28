@@ -174,12 +174,16 @@
     </div>
     <div class="ctx-quick" id="ctx-quick"></div>
   </div>
-  <div class="notice planned">
-    <strong>Retrieval isn't built yet.</strong> You choose which articles the model sees.
-    Leave the relevant one out to check that the model declines instead of guessing.
+  <div class="segmented ctx-mode" id="ctx-mode" role="radiogroup" aria-label="Context"></div>
+  <div id="ctx-auto" class="notice planned" hidden></div>
+  <div id="ctx-manual">
+    <div class="notice planned">
+      You choose which articles the model sees. Leave the relevant one out to check that the model
+      declines instead of guessing.
+    </div>
+    <input type="search" id="ctx-filter" class="search small" placeholder="Filter by number, topic or text">
+    <div class="ctx-list" id="ctx-list"></div>
   </div>
-  <input type="search" id="ctx-filter" class="search small" placeholder="Filter by number, topic or text">
-  <div class="ctx-list" id="ctx-list"></div>
   <div class="ctx-source" id="ctx-source"></div>
 </div>
 

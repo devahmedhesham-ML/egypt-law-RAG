@@ -70,6 +70,8 @@ const state = {
   backend: 'bedrock',
   feedback: [],
   feedbackFilter: 'all',
+  retrieve: false, // true once the index exists: each question searches it for its context
+  topK: 5,
 };
 
 const EXAMPLES = [
@@ -212,7 +214,35 @@ function renderContextPicker() {
   updateCtxCount();
 }
 
+function renderCtxMode() {
+  const canRetrieve = state.articleSource === 'corpus';
+  const seg = (on, label, sub, onclick, disabled) => h('button', {
+    class: 'seg', type: 'button', role: 'radio', 'aria-checked': String(on), disabled, onclick,
+  }, h('span', { class: 'seg-top' }, label), h('span', { class: 'seg-model' }, sub));
+  const k = h('select', { class: 'topk', 'aria-label': 'Articles to retrieve',
+    onchange: (e) => { state.topK = Number(e.target.value); renderCtxMode(); } },
+  [3, 5, 8, 10].map((n) => h('option', { value: n, selected: n === state.topK }, `top ${n}`)));
+  $('#ctx-mode').replaceChildren(
+    seg(state.retrieve, 'Retrieve from the index', canRetrieve ? 'search 1,149 articles per question' : 'build the corpus + index first',
+      () => { state.retrieve = true; renderCtxMode(); }, !canRetrieve),
+    seg(!state.retrieve, 'Pick by hand', 'choose the articles yourself', () => { state.retrieve = false; renderCtxMode(); }),
+  );
+  $('#ctx-auto').hidden = !state.retrieve;
+  $('#ctx-manual').hidden = state.retrieve;
+  $('#ctx-quick').hidden = state.retrieve;
+  $('#ctx-auto').replaceChildren(
+    h('div', { class: 'auto-row' }, h('strong', {}, 'Each question searches the index'), k),
+    h('div', {}, 'The articles it finds (with scores) appear in the answer card under "Context sent". '
+      + 'Questions that name an article ("المادة 801", "Article 60") look it up directly.'));
+  updateCtxCount();
+}
+
 function updateCtxCount() {
+  if (state.retrieve) {
+    $('#ctx-count').textContent = `automatic · top ${state.topK} of ${state.articles.length.toLocaleString()}`;
+    $('#ctx-count').classList.remove('warn-text');
+    return;
+  }
   const n = state.selected.size;
   const el = $('#ctx-count');
   el.textContent = `${n} of ${state.articles.length.toLocaleString()} selected`
@@ -370,8 +400,9 @@ function feedbackBox(result) {
   return h('div', { class: 'feedback' }, h('div', { class: 'fb-row' }, h('span', { class: 'fb-label' }, 'Was this answer right?'), upBtn, downBtn), more);
 }
 
-function createAnswerCard({ backend, question, articleNumbers, view, showQuestion = true }) {
+function createAnswerCard({ backend, question, articleNumbers, view, showQuestion = true, retrieving = false }) {
   const b = state.config.backends[backend];
+  const contextDetails = h('details', { class: 'context-sent', open: retrieving });
   const badge = h('span', { class: 'badge neutral' }, 'Waiting');
   const body = h('div', { class: 'answer-body' }, h('div', { class: 'thinking' }, h('span', { class: 'spinner' }), 'Waiting for the first tokens…'));
   const checkSlot = h('div');
@@ -383,13 +414,22 @@ function createAnswerCard({ backend, question, articleNumbers, view, showQuestio
       badge),
     showQuestion ? h('div', { class: 'answer-q', dir: 'auto' }, question) : null,
     body, checkSlot, metrics, feedbackSlot,
-    h('details', { class: 'context-sent' },
-      h('summary', {}, `Context sent: ${plural(articleNumbers.length, 'article')}`),
-      h('div', { class: 'ctx-chips' },
-        articleNumbers.length
-          ? articleNumbers.map((n) => h('button', { class: 'cite', type: 'button', dataset: { article: n } }, `Art. ${n}`))
-          : h('span', { class: 'card-sub' }, 'None: the model saw no articles.'))));
+    contextDetails);
 
+  function renderContext(numbers, hits, meta) {
+    contextDetails.replaceChildren(
+      h('summary', {}, retrieving && !hits ? 'Searching the index…' : `Context sent: ${plural(numbers.length, 'article')}`
+        + (meta ? ` · retrieved in ${meta.latency_s.toFixed(2)} s on ${meta.device}` : '')),
+      h('div', { class: 'ctx-chips' },
+        numbers.length
+          ? (hits || numbers.map((n) => ({ article_number: n }))).map((x) => h('button', {
+            class: 'cite', type: 'button', dataset: { article: x.article_number },
+            title: x.by_number ? 'named in the question' : x.score != null ? `similarity ${x.score}` : '',
+          }, `Art. ${x.article_number}`, x.by_number ? ' · by number' : x.score != null ? ` · ${x.score.toFixed(2)}` : ''))
+          : h('span', { class: 'card-sub' }, retrieving && !hits ? '' : 'None: the model saw no articles.')));
+  }
+
+  renderContext(articleNumbers, null, null);
   let text = '';
   const result = { backend, question, articleNumbers, view, text: '', done: null };
   const setBadge = (cls, label) => { badge.className = `badge ${cls}`; badge.textContent = label; };
@@ -403,6 +443,12 @@ function createAnswerCard({ backend, question, articleNumbers, view, showQuestio
     result,
     finished: false,
     start() { setBadge('partial', 'Streaming'); },
+    retrieved(evt) {
+      const numbers = evt.hits.filter((x) => x.in_corpus).map((x) => x.article_number);
+      result.articleNumbers = numbers;
+      card.dataset.context = numbers.join(',');
+      renderContext(numbers, evt.hits.filter((x) => x.in_corpus), evt);
+    },
     delta(chunk) { text += chunk; renderText(null, true); },
     done(evt) {
       this.finished = true;
@@ -453,7 +499,8 @@ async function streamAsk(payload, ui, signal) {
         buf = buf.slice(i + 1);
         if (!line.trim()) continue;
         const evt = JSON.parse(line);
-        if (evt.type === 'start') ui.start(evt);
+        if (evt.type === 'retrieved') ui.retrieved(evt);
+        else if (evt.type === 'start') ui.start(evt);
         else if (evt.type === 'delta') ui.delta(evt.text);
         else if (evt.type === 'done') ui.done(evt);
         else if (evt.type === 'error') ui.error(evt.message);
@@ -464,6 +511,10 @@ async function streamAsk(payload, ui, signal) {
     return;
   }
   if (!ui.finished) ui.error('The stream ended without a final result.');
+}
+
+function contextPayload() {
+  return state.retrieve ? { retrieve: true, top_k: state.topK, article_numbers: [] } : { article_numbers: selectedNumbers() };
 }
 
 function generationSettings() {
@@ -483,8 +534,9 @@ async function runAsk() {
   if (askCtrl) return;
   const question = $('#ask-q').value.trim();
   if (!question) { $('#ask-q').focus(); toast('Write a question first.'); return; }
-  const payload = { question, backend: state.backend, article_numbers: selectedNumbers(), ...generationSettings() };
-  const ui = createAnswerCard({ backend: payload.backend, question, articleNumbers: payload.article_numbers, view: 'ask' });
+  const payload = { question, backend: state.backend, ...contextPayload(), ...generationSettings() };
+  const ui = createAnswerCard({ backend: payload.backend, question, articleNumbers: payload.article_numbers,
+    view: 'ask', retrieving: state.retrieve });
   const results = $('#ask-results');
   results.querySelector('.empty')?.remove();
   results.prepend(ui.card);
@@ -503,19 +555,21 @@ async function runCompare() {
   if (cmpCtrl) return;
   const question = $('#cmp-q').value.trim();
   if (!question) { $('#cmp-q').focus(); toast('Write a question first.'); return; }
-  const nums = selectedNumbers();
+  const ctx = contextPayload();
+  const nums = ctx.article_numbers;
   const cols = $('#cmp-cols');
   cols.replaceChildren();
   $('#cmp-summary').replaceChildren();
   cmpCtrl = new AbortController();
   setRunning('cmp', true);
   const uis = Object.keys(state.config.backends).map((backend) => {
-    const ui = createAnswerCard({ backend, question, articleNumbers: nums, view: 'compare', showQuestion: false });
+    const ui = createAnswerCard({ backend, question, articleNumbers: nums, view: 'compare', showQuestion: false,
+      retrieving: state.retrieve });
     cols.append(ui.card);
     return ui;
   });
   await Promise.all(uis.map((ui) =>
-    streamAsk({ question, backend: ui.result.backend, article_numbers: nums, ...generationSettings() }, ui, cmpCtrl.signal)));
+    streamAsk({ question, backend: ui.result.backend, ...ctx, ...generationSettings() }, ui, cmpCtrl.signal)));
   cmpCtrl = null;
   setRunning('cmp', false);
   renderCompareSummary(uis);
@@ -825,8 +879,58 @@ const PLANNED = {
   },
 };
 
+async function runSearch() {
+  const question = $('#ret-q').value.trim();
+  if (!question) { $('#ret-q').focus(); return; }
+  const out = $('#ret-results');
+  out.replaceChildren(h('div', { class: 'thinking' }, h('span', { class: 'spinner' }), 'Searching… (the first search loads the embedding model)'));
+  let res;
+  try {
+    res = await api('/api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, k: Number($('#ret-k').value) }) });
+  } catch (e) {
+    out.replaceChildren(h('div', { class: 'error-box' }, e.message));
+    return;
+  }
+  const best = Math.max(...res.hits.map((x) => x.score ?? 0), 0.01);
+  out.replaceChildren(
+    h('div', { class: 'card-sub', style: 'margin-bottom:8px' }, `${plural(res.hits.length, 'article')} in ${res.latency_s.toFixed(2)} s · embedding on ${res.device}`),
+    ...res.hits.map((x, i) => {
+      const a = state.byNumber.get(x.article_number) || {};
+      return h('div', { class: 'ret-hit' },
+        h('div', { class: 'ret-rank' }, `${i + 1}`),
+        h('div', { class: 'ret-main' },
+          h('div', { class: 'ret-head' },
+            h('button', { class: 'cite', type: 'button', dataset: { article: x.article_number } }, `Art. ${x.article_number}`),
+            x.by_number ? h('span', { class: 'badge working' }, 'named in the question')
+              : h('span', { class: 'ret-score' }, h('span', { class: 'bar' }, h('span', { style: `width:${(x.score / best) * 100}%` })), x.score.toFixed(3)),
+            a.is_repealed ? h('span', { class: 'badge partial' }, 'Repealed') : null,
+            h('span', { class: 'card-sub' }, a.topic || '')),
+          h('div', { class: 'ret-text is-ar', dir: 'rtl' }, (a.text_ar || a.repeal_note_ar || '').slice(0, 220)),
+          h('div', { class: 'ret-text' }, (a.text_en || a.repeal_note || '').slice(0, 260))));
+    }),
+  );
+}
+
+function renderRetrievalView() {
+  $('#view-retrieval').replaceChildren(
+    h('header', { class: 'view-head' },
+      h('h1', {}, 'Retrieval inspector'),
+      h('p', { class: 'lede' }, 'Search the index the way Ask does: the question is embedded with Qwen3-Embedding-0.6B and '
+        + 'compared with one bilingual chunk per article. Scores are cosine similarity; articles named by number come first.')),
+    h('div', { class: 'card' },
+      h('textarea', { id: 'ret-q', dir: 'auto', rows: 2, placeholder: 'اكتب سؤالك هنا… or ask in English',
+        onkeydown: (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); runSearch(); } } }),
+      h('div', { class: 'actions' },
+        h('button', { class: 'btn primary', type: 'button', onclick: runSearch }, 'Search ', h('kbd', {}, 'Ctrl ↵')),
+        h('select', { id: 'ret-k', class: 'topk' }, [5, 10, 20].map((n) => h('option', { value: n, selected: n === 10 }, `top ${n}`))))),
+    h('div', { id: 'ret-results', class: 'ret-results' }),
+  );
+}
+
 function renderPlanned() {
   for (const [view, p] of Object.entries(PLANNED)) {
+    if (view === 'retrieval' && state.articleSource === 'corpus') continue; // the real inspector replaces it
     const s = state.stageById.get(p.stage);
     const live = s?.state === 'working';
     const extra = view === 'traces' && state.config?.langfuse_url
@@ -976,6 +1080,9 @@ async function init() {
   renderContextPicker();
   renderBackends();
   renderExamples();
+  state.retrieve = state.articleSource === 'corpus';
+  renderCtxMode();
+  if (state.articleSource === 'corpus') renderRetrievalView();
   renderCorpus();
   renderPlanned();
   renderNavTags();

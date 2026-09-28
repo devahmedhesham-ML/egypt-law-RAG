@@ -89,11 +89,12 @@ python -m rag.ui          # app venv, from the repo root -> http://localhost:786
 
 | View | What it does |
 |---|---|
-| Ask | Streamed answer from Bedrock or vLLM; you pick the context articles; citations are clickable and checked against the context |
+| Ask | Streamed answer from Bedrock or vLLM; context retrieved from the index per question (top-k, articles named by number first) or picked by hand; citations are clickable and checked against the context |
 | Compare | Same question and context on both backends side by side, with a latency/tokens/citations summary |
 | Status | Live health of every pipeline stage; planned stages are listed so gaps stay visible |
 | Corpus | All 1,149 articles with their bilingual hierarchy and source pages, the build's warnings, and a "Random 20" eyeball check (a 19-article sample until the corpus is built) |
-| Retrieval, Evaluation, Traces | Planned: what each will test, what it needs first, and a preview of its layout |
+| Retrieval | Search the index directly: ranked articles with similarity scores, hierarchy and text |
+| Evaluation, Traces | Planned: what each will test, what it needs first, and a preview of its layout |
 | Feedback log | Every tester rating (right/wrong, reason tags, comment) from `data/feedback/feedback.jsonl`, downloadable |
 
 When a stage lands, update its entry in [src/rag/ui/status.py](src/rag/ui/status.py) so testers see it.

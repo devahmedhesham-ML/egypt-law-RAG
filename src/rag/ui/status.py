@@ -74,8 +74,10 @@ def _index() -> Stage:
 
 
 def _retrieval() -> Stage:
-    if importlib.util.find_spec("rag.retrieval"):
-        return Stage("retrieval", "Retrieval", "Retrieval in the answer path", WORKING, "rag.retrieval is installed.")
+    if importlib.util.find_spec("rag.retrieval") and CORPUS_PATH.exists():
+        return Stage("retrieval", "Retrieval", "Retrieval in the answer path", WORKING,
+                     "Ask and Compare search the index for each question (top-k, articles named by number first). "
+                     "The Retrieval view shows the ranked hits. BentoML /ask comes next.")
     return Stage(
         "retrieval", "Retrieval", "Retrieval in the answer path", PLANNED,
         "Search the index for each question and pass the top articles to the model. "

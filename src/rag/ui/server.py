@@ -33,12 +33,35 @@ def backend_for(name: str) -> LLMBackend:
     return get_backend(backend=name)
 
 
+@lru_cache
+def get_retriever():
+    from rag.retrieval import Retriever
+
+    return Retriever()
+
+
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
     backend: Literal["bedrock", "vllm"]
     article_numbers: list[int] = Field(default_factory=list, max_length=50)
+    retrieve: bool = False  # True: search the index for the context instead of article_numbers
+    top_k: int = Field(5, ge=1, le=20)
     temperature: float = Field(0.0, ge=0.0, le=1.0)
     max_tokens: int = Field(1024, ge=64, le=4096)
+
+
+class SearchRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    k: int = Field(10, ge=1, le=50)
+
+
+def _hits_json(retrieval, by_number: dict) -> dict:
+    return {
+        "device": retrieval.device,
+        "latency_s": retrieval.latency_s,
+        "hits": [{"article_number": h.article_number, "score": h.score, "by_number": h.by_number,
+                  "in_corpus": h.article_number in by_number} for h in retrieval.hits],
+    }
 
 
 class FeedbackRequest(BaseModel):
@@ -114,7 +137,12 @@ def ask(req: AskRequest) -> StreamingResponse:
     context = [by_number[n] for n in req.article_numbers]
 
     def events() -> Iterator[str]:
+        nonlocal context
         try:
+            if req.retrieve:
+                retrieval = get_retriever().retrieve(req.question, req.top_k)
+                context = [by_number[h.article_number] for h in retrieval.hits if h.article_number in by_number]
+                yield _ndjson({"type": "retrieved", **_hits_json(retrieval, by_number)})
             backend = backend_for(req.backend)
             yield _ndjson({"type": "start", "backend": backend.name, "model": backend.model})
             for item in answer_stream(
@@ -138,8 +166,21 @@ def ask(req: AskRequest) -> StreamingResponse:
                     yield _ndjson({"type": "delta", "text": item})
         except (LLMError, ValueError) as e:
             yield _ndjson({"type": "error", "message": str(e)})
+        except Exception as e:  # noqa: BLE001 - e.g. index missing: show it in the answer card
+            yield _ndjson({"type": "error", "message": f"{type(e).__name__}: {e}"})
 
     return StreamingResponse(events(), media_type="application/x-ndjson")
+
+
+@app.post("/api/search")
+def search_index(req: SearchRequest) -> dict:
+    """Retrieval only: the top-k articles for a question, with scores (Retrieval view)."""
+    by_number = {a["article_number"]: a for a in data.load_articles().articles}
+    try:
+        retrieval = get_retriever().retrieve(req.question, req.k)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(503, f"retrieval unavailable: {type(e).__name__}: {e}") from e
+    return _hits_json(retrieval, by_number)
 
 
 @app.post("/api/feedback")

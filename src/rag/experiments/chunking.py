@@ -30,17 +30,12 @@ from rich.table import Table
 from rag.ingest.chunks import build_chunks, chunks_per_article, query_text
 from rag.ingest.embed import GpuEmbedder
 from rag.ingest.store import best_per_article, collection_name, search, write_index
+from rag.experiments.report import EXPERIMENT, build_report, latest_runs, production_config, run_name
 from rag.retrieval import merge_hits, numbers_in_question
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TRACKING_URI = f"sqlite:///{REPO_ROOT / 'mlflow.db'}"
-EXPERIMENT = "chunking"
 DEPTH = 10  # articles ranked per question (MRR, nDCG look this deep)
-
-
-def run_name(cfg: dict) -> str:
-    size = f"-{cfg['chunk_size']}o{cfg.get('overlap', 0)}" if cfg["strategy"] == "window" else ""
-    return f"{cfg['strategy']}{size}__{cfg['model'].split('/')[-1]}"
 
 
 # --- metrics --------------------------------------------------------------------------------
@@ -226,6 +221,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--faithfulness", action="store_true", help="also answer with Bedrock and score with RAGAS")
     ap.add_argument("--concurrency", type=int, default=8, help="parallel Bedrock requests for --faithfulness")
     ap.add_argument("--report", default="reports/chunking_experiments.md")
+    ap.add_argument("--report-only", action="store_true", help="rebuild the report from MLflow without running anything")
     args = ap.parse_args(argv)
 
     from dotenv import load_dotenv
@@ -239,9 +235,9 @@ def main(argv: list[str] | None = None) -> int:
     records = json.loads((REPO_ROOT / corpus["output"]).read_text(encoding="utf-8"))
     questions_path = REPO_ROOT / exp["questions"]
     questions = [json.loads(line) for line in questions_path.read_text(encoding="utf-8").splitlines() if line.strip()]
-    configs = [c for i, c in enumerate(exp["chunking"]) if args.only is None or i in args.only]
+    configs = [c for i, c in enumerate(exp["chunking"]) if (args.only is None or i in args.only) and not args.report_only]
     faith = (Faithfulness({r["article_number"]: r for r in records}, concurrency=args.concurrency)
-             if args.faithfulness else None)
+             if args.faithfulness and configs else None)
     draft = sum(q.get("status") == "draft" for q in questions)
     if draft:
         console.print(f"[yellow]! {draft}/{len(questions)} questions are still drafts (eval/README.md): "
@@ -271,70 +267,23 @@ def main(argv: list[str] | None = None) -> int:
     # The table and report cover the latest run of every config in the grid, including ones from earlier
     # invocations (so rerunning a single config with --only still yields the full comparison).
     k = exp["top_k"]
-    summary = latest_runs(mlflow, exp["chunking"])
-    cols = ["hit_at_1", f"recall_at_{k}", "mrr", f"ndcg_at_{k}", "hit_at_1_ar", "hit_at_1_en", "ar_en_top1_agreement"]
-    if any("faithfulness" in m for _, _, m, _ in summary):
-        cols += ["faithfulness", "faithfulness_judged"]
+    runs = latest_runs(mlflow, exp["chunking"])
+    cols = ["hit_at_1", f"recall_at_{k}", "mrr", f"ndcg_at_{k}", "ar_en_top1_agreement", "faithfulness"]
     t = Table(title=f"Chunking experiments ({len(questions)} questions, top-{k})", title_justify="left")
-    fmt = {"faithfulness_judged": "{:.0f}"}
     for c in ["run", "chunks", *cols]:
         t.add_column(c, justify="right" if c != "run" else "left")
-    for name, _, m, info in summary:
-        t.add_row(name, str(info["chunks"]), *(fmt.get(c, "{:.3f}").format(m.get(c, float("nan"))) for c in cols))
+    for r in runs:
+        m = r["metrics"]
+        t.add_row(r["name"], f"{m.get('chunks', 0):.0f}", *(f"{m.get(c, float('nan')):.3f}" for c in cols))
     console.print(t)
-    write_report(REPO_ROOT / args.report, summary, cols, len(questions), draft, k, "faithfulness" in cols,
-                 scoped=sum(bool(q["relevant_articles"]) for q in questions))
+    command = "python -m rag.experiments.chunking" + (" --faithfulness" if any(
+        "faithfulness" in r["metrics"] for r in runs) else "")
+    report = build_report(runs, questions, production_config(exp["chunking"], ingest), k, git_sha(), command)
+    (REPO_ROOT / args.report).parent.mkdir(parents=True, exist_ok=True)
+    (REPO_ROOT / args.report).write_text(report, encoding="utf-8")
+    console.print(f"Report: {args.report}")
     console.print(f"MLflow: mlflow ui --backend-store-uri {TRACKING_URI}  (experiment '{EXPERIMENT}')")
     return 0
-
-
-def latest_runs(mlflow, grid: list[dict]) -> list[tuple[str, dict, dict, dict]]:
-    """(name, config, metrics, info) for the latest finished MLflow run of each grid config, in grid order."""
-    exp = mlflow.get_experiment_by_name(EXPERIMENT)
-    runs = mlflow.search_runs([exp.experiment_id], filter_string="attributes.status = 'FINISHED'",
-                              order_by=["attributes.start_time DESC"], output_format="list")
-    latest = {}
-    for r in runs:
-        latest.setdefault(r.info.run_name, r)
-    out = []
-    for cfg in grid:
-        r = latest.get(run_name(cfg))
-        if r is not None:
-            m = dict(r.data.metrics)
-            out.append((run_name(cfg), cfg, m, {"chunks": int(m.get("chunks", 0))}))
-    return out
-
-
-def write_report(path: Path, summary: list, cols: list[str], n: int, draft: int, k: int, faith: bool,
-                 scoped: int = 0) -> None:
-    head = "| Run | Strategy | Chunk size / overlap | Embedding model | Chunks | " + " | ".join(cols) + " |"
-    lines = [
-        "# Chunking experiments", "",
-        f"Generated by `python -m rag.experiments.chunking{' --faithfulness' if faith else ''}` "
-        f"(git {git_sha()}); every row is an MLflow run in `mlflow.db`, experiment `chunking`.",
-        f"{n} questions from `eval/questions.jsonl`"
-        + (f", **{draft} still drafts awaiting review, so these numbers are provisional**" if draft else "") + ".",
-        f"Metrics are over the {scoped} in-scope questions; `@{k}` = the {k} articles sent to the model. Retrieval "
-        "works as in production: articles named in the question first, then the best chunk per article. "
-        f"With {scoped} questions one question moves hit@1 by {1 / max(scoped, 1):.3f}, so small gaps are noise.", "",
-        head, "|" + "---|" * (5 + len(cols)),
-    ]
-    best = {c: max(m.get(c, float("-inf")) for _, _, m, _ in summary) for c in cols}
-    for name, cfg, m, info in summary:
-        size = f"{cfg['chunk_size']} / {cfg.get('overlap', 0)}" if cfg["strategy"] == "window" else "whole article"
-        cells = []
-        for c in cols:
-            v = m.get(c)
-            if c == "faithfulness_judged":
-                cells.append("—" if v is None else f"{v:.0f}/{scoped}")
-            else:
-                cells.append("—" if v is None else (f"**{v:.3f}**" if v == best[c] else f"{v:.3f}"))
-        lines.append(f"| {name} | {cfg['strategy']} | {size} | {cfg['model'].split('/')[-1]} | {info['chunks']} | "
-                     + " | ".join(cells) + " |")
-    lines += ["", "Best value per column in bold. Screenshot of the MLflow comparison view: "
-              "[mlflow_chunking_compare.png](mlflow_chunking_compare.png)."]
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -148,6 +148,7 @@ correct answer rests on and a short reference answer. It is a **draft awaiting l
 ```bash
 python -m rag.experiments.chunking                 # retrieval metrics only, ~5 min for 8 configs (GPU)
 python -m rag.experiments.chunking --faithfulness  # + Bedrock answers judged by RAGAS
+python -m rag.experiments.chunking --report-only   # rebuild reports/chunking_experiments.md from MLflow
 mlflow ui --backend-store-uri sqlite:///mlflow.db  # experiment "chunking" → select runs → Compare
 ```
 

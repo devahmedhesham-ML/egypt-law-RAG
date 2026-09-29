@@ -249,6 +249,9 @@ def main(argv: list[str] | None = None) -> int:
 
     mlflow.set_tracking_uri(TRACKING_URI)
     mlflow.set_experiment(EXPERIMENT)
+    # Classic runs view (table, charts, Compare): without this tag MLflow 3 may show the GenAI evaluation layout,
+    # whose Overview expects MLflow Tracing (we trace with Langfuse) and stays empty.
+    mlflow.set_experiment_tag("mlflow.experimentKind", "custom_model_development")
     for cfg in configs:
         name = run_name(cfg)
         console.rule(f"[bold]{name}")

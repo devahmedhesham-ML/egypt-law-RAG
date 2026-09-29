@@ -126,22 +126,29 @@ class Faithfulness:
     async def _one(self, metric, sem: asyncio.Semaphore, question: str, numbers: list[int]) -> tuple[str, float]:
         from rag.llm import answer
 
+        from rag.llm import LLMError
+
         key = (question, tuple(numbers))
         if key not in self.cache:  # same question + same articles → same answer: judge it once
             async with sem:
                 context = [self.articles[n] for n in numbers]
-                result = await asyncio.to_thread(answer, self.backend, question, context,
-                                                 max_tokens=self.params["max_tokens"], temperature=0.0)
-                if not result.text.strip():
-                    score = float("nan")
-                else:
+                text, score = "", float("nan")
+                for attempt in range(3):  # the client already retries twice; this covers longer network blips
                     try:
-                        score = (await metric.ascore(user_input=question, response=result.text,
+                        result = await asyncio.to_thread(answer, self.backend, question, context,
+                                                         max_tokens=self.params["max_tokens"], temperature=0.0)
+                        text = result.text
+                        break
+                    except LLMError as e:
+                        print(f"  answer failed (attempt {attempt + 1}/3) on {question[:40]!r}: {e}"[:300])
+                        await asyncio.sleep(5 * (attempt + 1))
+                if text.strip():
+                    try:
+                        score = (await metric.ascore(user_input=question, response=text,
                                                      retrieved_contexts=self._context(numbers))).value
                     except Exception as e:  # noqa: BLE001 - one failed judgement must not sink the run
                         print(f"  faithfulness failed on {question[:40]!r}: {type(e).__name__}: {e}"[:300])
-                        score = float("nan")
-                self.cache[key] = (result.text, score)
+                self.cache[key] = (text, score)
         return self.cache[key]
 
     def score(self, items: list[tuple[str, list[int]]]) -> list[tuple[str, float]]:
@@ -217,6 +224,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--only", type=int, nargs="*", help="run only these config indexes (0-based)")
     ap.add_argument("--faithfulness", action="store_true", help="also answer with Bedrock and score with RAGAS")
+    ap.add_argument("--concurrency", type=int, default=8, help="parallel Bedrock requests for --faithfulness")
     ap.add_argument("--report", default="reports/chunking_experiments.md")
     args = ap.parse_args(argv)
 
@@ -232,7 +240,8 @@ def main(argv: list[str] | None = None) -> int:
     questions_path = REPO_ROOT / exp["questions"]
     questions = [json.loads(line) for line in questions_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     configs = [c for i, c in enumerate(exp["chunking"]) if args.only is None or i in args.only]
-    faith = Faithfulness({r["article_number"]: r for r in records}) if args.faithfulness else None
+    faith = (Faithfulness({r["article_number"]: r for r in records}, concurrency=args.concurrency)
+             if args.faithfulness else None)
     draft = sum(q.get("status") == "draft" for q in questions)
     if draft:
         console.print(f"[yellow]! {draft}/{len(questions)} questions are still drafts (eval/README.md): "
@@ -240,7 +249,6 @@ def main(argv: list[str] | None = None) -> int:
 
     mlflow.set_tracking_uri(TRACKING_URI)
     mlflow.set_experiment(EXPERIMENT)
-    summary = []
     for cfg in configs:
         name = run_name(cfg)
         console.rule(f"[bold]{name}")
@@ -255,25 +263,47 @@ def main(argv: list[str] | None = None) -> int:
                              "eval_sha256": hashlib.sha256(questions_path.read_bytes()).hexdigest()[:12],
                              "device": info["device"]})
             mlflow.log_dict({"config": cfg, "questions": rows}, "per_question.json")
-        summary.append((name, cfg, metrics, info))
         console.print({k: round(v, 3) for k, v in metrics.items()})
 
+    # The table and report cover the latest run of every config in the grid, including ones from earlier
+    # invocations (so rerunning a single config with --only still yields the full comparison).
     k = exp["top_k"]
+    summary = latest_runs(mlflow, exp["chunking"])
     cols = ["hit_at_1", f"recall_at_{k}", "mrr", f"ndcg_at_{k}", "hit_at_1_ar", "hit_at_1_en", "ar_en_top1_agreement"]
-    if faith:
-        cols.append("faithfulness")
+    if any("faithfulness" in m for _, _, m, _ in summary):
+        cols += ["faithfulness", "faithfulness_judged"]
     t = Table(title=f"Chunking experiments ({len(questions)} questions, top-{k})", title_justify="left")
+    fmt = {"faithfulness_judged": "{:.0f}"}
     for c in ["run", "chunks", *cols]:
         t.add_column(c, justify="right" if c != "run" else "left")
     for name, _, m, info in summary:
-        t.add_row(name, str(info["chunks"]), *(f"{m.get(c, float('nan')):.3f}" for c in cols))
+        t.add_row(name, str(info["chunks"]), *(fmt.get(c, "{:.3f}").format(m.get(c, float("nan"))) for c in cols))
     console.print(t)
-    write_report(REPO_ROOT / args.report, summary, cols, len(questions), draft, k, faith is not None)
+    write_report(REPO_ROOT / args.report, summary, cols, len(questions), draft, k, "faithfulness" in cols,
+                 scoped=sum(bool(q["relevant_articles"]) for q in questions))
     console.print(f"MLflow: mlflow ui --backend-store-uri {TRACKING_URI}  (experiment '{EXPERIMENT}')")
     return 0
 
 
-def write_report(path: Path, summary: list, cols: list[str], n: int, draft: int, k: int, faith: bool) -> None:
+def latest_runs(mlflow, grid: list[dict]) -> list[tuple[str, dict, dict, dict]]:
+    """(name, config, metrics, info) for the latest finished MLflow run of each grid config, in grid order."""
+    exp = mlflow.get_experiment_by_name(EXPERIMENT)
+    runs = mlflow.search_runs([exp.experiment_id], filter_string="attributes.status = 'FINISHED'",
+                              order_by=["attributes.start_time DESC"], output_format="list")
+    latest = {}
+    for r in runs:
+        latest.setdefault(r.info.run_name, r)
+    out = []
+    for cfg in grid:
+        r = latest.get(run_name(cfg))
+        if r is not None:
+            m = dict(r.data.metrics)
+            out.append((run_name(cfg), cfg, m, {"chunks": int(m.get("chunks", 0))}))
+    return out
+
+
+def write_report(path: Path, summary: list, cols: list[str], n: int, draft: int, k: int, faith: bool,
+                 scoped: int = 0) -> None:
     head = "| Run | Strategy | Chunk size / overlap | Embedding model | Chunks | " + " | ".join(cols) + " |"
     lines = [
         "# Chunking experiments", "",
@@ -281,8 +311,9 @@ def write_report(path: Path, summary: list, cols: list[str], n: int, draft: int,
         f"(git {git_sha()}); every row is an MLflow run in `mlflow.db`, experiment `chunking`.",
         f"{n} questions from `eval/questions.jsonl`"
         + (f", **{draft} still drafts awaiting review, so these numbers are provisional**" if draft else "") + ".",
-        f"Metrics are over in-scope questions; `@{k}` = the {k} articles sent to the model. Retrieval works as in "
-        "production: articles named in the question first, then the best chunk per article.", "",
+        f"Metrics are over the {scoped} in-scope questions; `@{k}` = the {k} articles sent to the model. Retrieval "
+        "works as in production: articles named in the question first, then the best chunk per article. "
+        f"With {scoped} questions one question moves hit@1 by {1 / max(scoped, 1):.3f}, so small gaps are noise.", "",
         head, "|" + "---|" * (5 + len(cols)),
     ]
     best = {c: max(m.get(c, float("-inf")) for _, _, m, _ in summary) for c in cols}
@@ -291,7 +322,10 @@ def write_report(path: Path, summary: list, cols: list[str], n: int, draft: int,
         cells = []
         for c in cols:
             v = m.get(c)
-            cells.append("—" if v is None else (f"**{v:.3f}**" if v == best[c] else f"{v:.3f}"))
+            if c == "faithfulness_judged":
+                cells.append("—" if v is None else f"{v:.0f}/{scoped}")
+            else:
+                cells.append("—" if v is None else (f"**{v:.3f}**" if v == best[c] else f"{v:.3f}"))
         lines.append(f"| {name} | {cfg['strategy']} | {size} | {cfg['model'].split('/')[-1]} | {info['chunks']} | "
                      + " | ".join(cells) + " |")
     lines += ["", "Best value per column in bold. Screenshot of the MLflow comparison view: "

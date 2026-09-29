@@ -138,6 +138,54 @@ python -m rag.ui          # app venv, from the repo root -> http://localhost:786
 
 When a stage lands, update its entry in [src/rag/ui/status.py](src/rag/ui/status.py) so testers see it.
 
+## Evaluation set and chunking experiments (MLflow)
+
+[eval/questions.jsonl](eval/questions.jsonl) holds 62 questions: 28 topics from all four books, each asked in Arabic
+and in English, plus 2 that name an article by number and 4 out-of-scope questions. Each question lists the articles a
+correct answer rests on and a short reference answer. It is a **draft awaiting legal review** (checklist in
+[eval/README.md](eval/README.md)), so the scores below are provisional.
+
+```bash
+python -m rag.experiments.chunking                 # retrieval metrics only, ~5 min for 8 configs (GPU)
+python -m rag.experiments.chunking --faithfulness  # + Bedrock answers judged by RAGAS
+mlflow ui --backend-store-uri sqlite:///mlflow.db  # experiment "chunking" → select runs → Compare
+```
+
+Each entry under `experiments.chunking` in [params.yaml](params.yaml) is one MLflow run: a chunking strategy
+(`article`, `window` with `chunk_size`/`overlap` in tokens, or `per_language`) and an embedding model. The run builds a
+throwaway index under `data/experiments/`, retrieves for every question exactly as production does (articles named in
+the question first, then the best chunk per article), and logs:
+
+- params: `strategy`, `chunk_size`, `overlap`, `embedding_model`, `top_k`, `judge_model`
+- metrics: `hit_at_1`, `hit_at_5`, `recall_at_5`, `mrr`, `ndcg_at_5` (overall, `_ar`, `_en`), `ar_en_top1_agreement`,
+  the top-1 similarity for in-scope vs out-of-scope questions, chunk counts and timings, and with `--faithfulness`,
+  RAGAS `faithfulness` (Bedrock `gpt-oss-120b` answers from the top 5 articles and also judges)
+- artifact: `per_question.json` with every question's ranking, answer and score
+
+Chunking changes only which articles are retrieved: the model always receives whole articles. Results:
+[reports/chunking_experiments.md](reports/chunking_experiments.md).
+
+First results (8 runs, 58 in-scope questions; one question = 0.017 of hit@1, so treat small gaps as ties):
+
+| Run | hit@1 | recall@5 | MRR | AR/EN same top-1 | faithfulness |
+|---|---|---|---|---|---|
+| **article, Qwen3-Embedding-0.6B (production)** | 0.741 | 0.931 | 0.819 | 0.607 | 0.914 |
+| article, bge-m3 | 0.759 | 0.931 | 0.835 | 0.714 | 0.881 |
+| window 512/64, Qwen3 | 0.724 | 0.931 | 0.808 | 0.571 | 0.924 |
+| window 256/32, Qwen3 | 0.724 | 0.897 | 0.805 | 0.571 | 0.879 |
+| per_language, Qwen3 | 0.655 | 0.879 | 0.759 | 0.357 | 0.876 |
+| window 128/16, Qwen3 | 0.414 | 0.638 | 0.518 | 0.357 | 0.875 |
+
+- **Whole articles are the right unit.** Every split retrieves worse; 128-token windows lose the context that makes an
+  article findable (hit@1 0.41). Splitting Arabic from English loses the bilingual chunk's help across languages: the
+  two versions of a question agree on the top article far less often (0.61 → 0.36).
+- **bge-m3 ties Qwen3 on whole articles** (one question apart) and agrees more across languages, but separates
+  out-of-scope questions worse: their best match scores 0.49 with bge-m3 against 0.42 with Qwen3 (in-scope: ~0.65
+  for both), which matters for a future "no relevant article" threshold.
+- **Faithfulness is 0.87–0.92 everywhere**: once the right articles are in the context, the answer stays grounded;
+  the differences are within noise.
+- Production stays **article + Qwen3-Embedding-0.6B** until the question set is reviewed and larger.
+
 ## Tracing (Langfuse)
 
 Set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL` in `.env` (see `.env.example`); without them, or

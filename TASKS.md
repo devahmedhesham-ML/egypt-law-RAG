@@ -8,14 +8,26 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 - [ ] At least one GitHub commit per session (5 sessions)
 - [ ] Review another student's project, 300+ words covering setup, code, a strength, 2 improvements and an extension (R09)
 
-## Now: Langfuse tracing (done) and follow-ups
+## Now: API, Docker, evaluation set, MLflow chunking experiments
+- [x] vLLM moved to port 8001 so the API owns 8000
+- [x] `rag.pipeline`: one retrieve → answer → check-citations path shared by the API, evaluation and (next) BentoML
+- [x] `python -m rag.api`: `/ask` + `/health`, 422 on empty/blank/missing questions, 503 with the reason when the LLM or index is down
+- [x] Docker image (2.8 GB, CPU): corpus + Chroma index pulled from S3 at build, embedding model baked in, runs offline; verified from a fresh clone
+- [x] `eval/questions.jsonl`: 62 questions (28 topics × AR/EN, 2 by number, 4 out of scope), consistency-tested
+- [ ] **Review the evaluation set** (yours: `eval/README.md` checklist); scores stay provisional until then
+- [x] Chunking strategies `article` (default) / `window` (size, overlap) / `per_language`; retrieval maps chunks back to articles
+- [x] `python -m rag.experiments.chunking --faithfulness`: 8 MLflow runs (strategy × chunk_size/overlap × embedding model), retrieval metrics + RAGAS faithfulness judged by Bedrock
+- [ ] MLflow comparison screenshot → `reports/mlflow_chunking_compare.png` (yours)
+- [ ] Decide whether to promote a different chunking config / embedding model (after the eval review)
+
+## Done: Langfuse tracing and follow-ups
 - [x] One `answer-question` trace per answer: retriever → embedding, generation (prompt, tokens, time to first token, reasoning), citation evaluator
 - [x] `search-articles`, `index-corpus` and `build-corpus` traces; batch jobs flush before exit
 - [x] Scores: `citations_outside_context`, `answer_has_citations`, `tester_rating`, `tester_issue`, `corpus_warnings`, `smoke_top1_rate`, `build_warnings`
 - [x] Console: per-tab session, "Trace ↗" link on every answer and search, Traces view, live Langfuse status check
 - [x] Audited real traces against the Langfuse best-practices page; fixed Stop handling, model-load span, service name, smoke sessions
 - [x] Tests disable tracing (`tests/conftest.py`): 58 passing
-- [ ] `dvc repro` + `dvc push`: the tracing edits touched `src/rag/corpus` and `src/rag/ingest`, so both stages show as changed (outputs should be identical; needs `aws login` for the push)
+- [x] `dvc repro` + `dvc push` after the tracing edits (dvc.lock committed)
 
 ## Done: build corpus + GPU ingestion into Chroma
 - [x] `params.yaml`: `corpus:` and `ingest:` sections
@@ -49,15 +61,15 @@ Plan: [docs/plans/corpus-build.md](docs/plans/corpus-build.md)
 ## 3. Code, API, Docker (Module 1 · R01–R03, p. 69)
 - [x] `src/` layout with `pyproject.toml`; `pip install -e .` works (R01)
 - [x] LLM layer: one OpenAI-compatible client over Bedrock (`gpt-oss-120b`) and vLLM, inline article citations, citation check
-- [ ] FastAPI `/ask`: `{question: str}` → `{answer: str, sources: list[str]}`, with sources as article citations, not chunk IDs (R02)
-- [ ] Pydantic rejects an empty question: 422 returned and tested with curl (R02)
-- [ ] `/health` returns `{status: healthy, documents_indexed: N}` (R02)
-- [ ] Dockerfile includes the vector store and embedded documents; `docker compose up` starts on port 8000 (R03)
-- [ ] README: exactly 3 commands to run Q&A on any machine (R03, R10)
+- [x] FastAPI `/ask`: `{question: str}` → `{answer: str, sources: list[str]}`, with sources as article citations, not chunk IDs (R02)
+- [x] Pydantic rejects an empty question: 422 returned and tested with curl, see `reports/curl_checks.md` (R02)
+- [x] `/health` returns `{status: healthy, documents_indexed: N}` (R02)
+- [x] Dockerfile includes the vector store and embedded documents; `docker compose up` starts on port 8000 (R03)
+- [x] README: exactly 3 commands to run Q&A on any machine (R03, R10)
 
 ## 4. Tracking, versioning, CI (Module 2 · R04–R06, p. 69)
-- [ ] MLflow logs each config: `chunk_size`, `overlap`, `embedding_model`, `faithfulness` (R04)
-- [ ] 5+ runs compared; MLflow screenshot in `/reports/` (R04)
+- [x] MLflow logs each config: `chunk_size`, `overlap`, `embedding_model`, `faithfulness` (R04)
+- [ ] 5+ runs compared (8 runs done, `reports/chunking_experiments.md`); MLflow screenshot in `/reports/` still needed (R04)
 - [ ] Best chunking config registered in the MLflow Registry (R04)
 - [ ] GitHub Actions: lint → test → rebuild index → push Docker image (R06)
 - [ ] CI fails if RAGAS faithfulness < 0.75 on a 20-question test set (R06)

@@ -67,8 +67,8 @@ stages:
       isexec: true
     - path: src/rag/ingest
       hash: md5
-      md5: 7a819c9bcd36b198723a3b1773d5d5a2.dir
-      size: 94323
+      md5: 0346e213ac28ba0d65e91847aae41ef8.dir
+      size: 104792
       nfiles: 10
     params:
       params.yaml:
@@ -78,6 +78,10 @@ stages:
           index_dir: data/index/chroma
           report: data/processed/index_report.json
           normalize_arabic: false
+          chunking:
+            strategy: article
+            chunk_size:
+            overlap: 0
           max_chunk_tokens: 8192
           tokens_per_batch: 4096
           max_replicas: 4
@@ -85,11 +89,11 @@ stages:
     outs:
     - path: data/index/chroma
       hash: md5
-      md5: f2bcf0953d962a4f056249f2437dc2c5.dir
-      size: 23622528
+      md5: 5b6410c74bae613b9400e09d10a6db89.dir
+      size: 23614336
       nfiles: 6
     - path: data/processed/index_report.json
       hash: md5
-      md5: 8a97b8746be0311653997642f2087470
+      md5: bf2ed89391d6182c6304825ffc1943d0
       size: 2338
       isexec: true

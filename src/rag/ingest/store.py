@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import atexit
 import re
 import shutil
+import tempfile
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +25,24 @@ def _client(path: Path):
     from chromadb.config import Settings
 
     return chromadb.PersistentClient(path=str(path), settings=Settings(anonymized_telemetry=False))
+
+
+_READ_COPIES: dict[tuple[Path, int], Path] = {}
+_READ_LOCK = threading.Lock()
+
+
+def _read_client(path: Path):
+    """Chroma rewrites its SQLite file even when only queried, so every search would make DVC report the
+    index as changed. Reads go to a private copy (~25 MB), made once per process and per index version."""
+    src = path.resolve()
+    key = (src, (src / "chroma.sqlite3").stat().st_mtime_ns)
+    with _READ_LOCK:
+        if key not in _READ_COPIES:
+            tmp = Path(tempfile.mkdtemp(prefix="chroma-read-"))
+            atexit.register(shutil.rmtree, tmp, True)
+            shutil.copytree(src, tmp / "index")
+            _READ_COPIES[key] = tmp / "index"
+        return _client(_READ_COPIES[key])
 
 
 def write_index(path: Path, name: str, chunks: list[Chunk], vectors: np.ndarray, metadata: dict,
@@ -45,7 +66,7 @@ def write_index(path: Path, name: str, chunks: list[Chunk], vectors: np.ndarray,
 
 def search(path: Path, name: str, query_vectors: np.ndarray, k: int = 10) -> list[list[dict]]:
     """Top-k articles per query: [{'article_number', 'score' (cosine similarity), 'citation', ...}]."""
-    col = _client(path).get_collection(name)
+    col = _read_client(path).get_collection(name)
     res = col.query(query_embeddings=query_vectors, n_results=k, include=["distances", "metadatas"])
     return [
         [{**meta, "score": round(1 - dist, 4)} for meta, dist in zip(metas, dists)]
@@ -63,9 +84,9 @@ def best_per_article(hits: list[dict]) -> list[dict]:
 
 def index_count(path: Path, name: str) -> int | None:
     """Vectors in the collection, or None if the index is missing."""
-    if not path.exists():
+    if not (path / "chroma.sqlite3").exists():
         return None
     try:
-        return _client(path).get_collection(name).count()
+        return _read_client(path).get_collection(name).count()
     except Exception:  # noqa: BLE001 - missing collection or unreadable index
         return None

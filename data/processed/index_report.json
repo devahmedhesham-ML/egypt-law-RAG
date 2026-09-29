@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-09-29T10:14:42+00:00",
+ "generated_at": "2026-09-29T10:18:15+00:00",
  "model": "Qwen/Qwen3-Embedding-0.6B",
  "collection": "civil_code__qwen3-embedding-0.6b",
  "index_dir": "data/index/chroma",
@@ -17,20 +17,20 @@
   "device": "cuda",
   "gpu": "NVIDIA GeForce RTX 4070 Ti SUPER",
   "replicas": 1,
-  "per_replica_mb": 2124,
-  "free_before_mb": 13885,
+  "per_replica_mb": 1766,
+  "free_before_mb": 11848,
   "margin_mb": 2048,
-  "peak_used_mb": 4597,
+  "peak_used_mb": 4595,
   "total_mb": 16376,
   "batches": 77,
   "tokens_per_batch": 4096,
   "texts": 1149,
   "tokens": 298034,
-  "load_s": 4.73,
-  "embed_s": 8.02,
-  "total_s": 13.55,
-  "tokens_per_s": 37161.3,
-  "texts_per_s": 143.27
+  "load_s": 4.83,
+  "embed_s": 7.93,
+  "total_s": 13.52,
+  "tokens_per_s": 37583.1,
+  "texts_per_s": 144.89
  },
  "smoke": [
   {
@@ -152,5 +152,5 @@
  ],
  "smoke_top1": 4,
  "warnings": 11,
- "elapsed_s": 25.11
+ "elapsed_s": 25.4
 }

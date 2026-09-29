@@ -164,3 +164,22 @@ def test_query_prompt_only_when_the_model_defines_one():
     assert query_prompt_name(NS(prompts={"query": "Instruct: ...", "document": ""})) == "query"
     assert query_prompt_name(NS(prompts={})) is None
     assert query_prompt_name(object()) is None
+
+
+def test_searching_never_modifies_the_tracked_index(tmp_path):
+    import hashlib
+
+    from rag.ingest.chunks import Chunk
+
+    chunks = [Chunk(f"art-{n:04d}", n, f"text {n}", f"text {n}", {"article_number": n}) for n in (1, 2)]
+    vectors = np.eye(2, 4, dtype=np.float32)
+    write_index(tmp_path / "idx", "col", chunks, vectors, {"m": "x"})
+
+    def digest():
+        return {p.name: hashlib.md5(p.read_bytes()).hexdigest() for p in (tmp_path / "idx").rglob("*") if p.is_file()}
+
+    before = digest()
+    assert index_count(tmp_path / "idx", "col") == 2
+    assert search(tmp_path / "idx", "col", vectors[:1], k=1)[0][0]["article_number"] == 1
+    assert digest() == before  # DVC would otherwise see a changed index after every search
+    assert index_count(tmp_path / "missing", "col") is None

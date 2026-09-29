@@ -67,8 +67,8 @@ stages:
       isexec: true
     - path: src/rag/ingest
       hash: md5
-      md5: 0346e213ac28ba0d65e91847aae41ef8.dir
-      size: 104792
+      md5: 6a48d482a5a690d526b7d6659544cff0.dir
+      size: 106881
       nfiles: 10
     params:
       params.yaml:
@@ -89,11 +89,11 @@ stages:
     outs:
     - path: data/index/chroma
       hash: md5
-      md5: 5b6410c74bae613b9400e09d10a6db89.dir
-      size: 23614336
+      md5: c750b29a43d136d4c20a7be1ec69610b.dir
+      size: 23626624
       nfiles: 6
     - path: data/processed/index_report.json
       hash: md5
-      md5: bf2ed89391d6182c6304825ffc1943d0
-      size: 2338
+      md5: dd256f3cb2733be77bdc434bb9cc4911
+      size: 2337
       isexec: true

@@ -3,6 +3,40 @@
 Arabic/English question answering over the Egyptian Civil Code, with answers cited by article number.
 (ITI × MLOps MENA, Final Project 2: LLM / RAG.)
 
+## Quick start: Q&A on any machine (Docker)
+
+```bash
+git clone https://github.com/devahmedhesham-ML/egypt-law-RAG.git && cd egypt-law-RAG
+cp .env.example .env         # then put your Bedrock API key in Bedrock_API_key
+docker compose up --build    # first build ~8 min; then http://localhost:8000
+```
+
+```bash
+curl localhost:8000/health
+curl -X POST localhost:8000/ask -H 'Content-Type: application/json' -d '{"question": "ما حكم هبة الأموال المستقبلة؟"}'
+# {"answer":"هبة الأموال المستقبلة تُعد باطلة. [Article 492]","sources":["Article 492"]}
+```
+
+The build needs only Docker: it pulls the corpus and the Chroma index pinned in `dvc.lock` from the public S3
+bucket (no AWS account, no DVC install) and bakes in the embedding model, so the container runs offline except for
+the LLM call. Without a key, `/health` still works and `/ask` answers 503 with the reason. To use a vLLM server on
+the host instead of Bedrock: `LLM_BACKEND=vllm docker compose up`.
+
+## API
+
+`python -m rag.api` (app venv, port 8000) or the Docker image above ([src/rag/api/app.py](src/rag/api/app.py)):
+
+| Endpoint | Request → response |
+|---|---|
+| `POST /ask` | `{"question": str}` → `{"answer": str, "sources": ["Article 492", ...]}`: the articles the answer cites that were in its retrieved context (top 5). Empty, blank or missing question → **422**. LLM or index unavailable → 503 with the reason. Langfuse trace id in the `X-Trace-Id` header. |
+| `GET /health` | `{"status": "healthy", "documents_indexed": 1149}`, or 503 `unhealthy` without an index |
+
+[reports/curl_checks.md](reports/curl_checks.md) holds a real run of every case; regenerate it with
+`scripts/curl_checks.sh > reports/curl_checks.md` against a running API. The API, evaluation and (next) BentoML share
+one path, [src/rag/pipeline.py](src/rag/pipeline.py): retrieve → answer → check citations. The image installs only
+`requirements-api.lock` (CPU torch, 2.8 GB image); regenerate it after editing `requirements-api.txt` with the command
+under Setup below.
+
 ## Setup (WSL Ubuntu + CUDA)
 
 Three virtual environments, each built from a lock file, because each one pins a different torch version:
@@ -29,6 +63,10 @@ The `requirements*.txt` files state intent. After editing one, regenerate its lo
 
 ```bash
 uv pip compile --python-version 3.12 --python-platform x86_64-manylinux_2_28 requirements.txt -o requirements.lock
+# API image: CPU torch, versions constrained to the app lock
+grep -vE "^(torch|nvidia-|triton|cuda-)" requirements.lock | grep -E "^[a-zA-Z0-9_.-]+==" > /tmp/api-constraints.txt
+uv pip compile requirements-api.txt -c /tmp/api-constraints.txt --python-version 3.12 \
+  --python-platform x86_64-manylinux_2_28 --torch-backend cpu --no-header -o requirements-api.lock
 ```
 
 ## Corpus and index

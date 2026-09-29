@@ -1,0 +1,21 @@
+# docker compose up --build  →  http://localhost:8000/health and POST /ask
+# The LLM is Bedrock by default (Bedrock_API_key in .env). For a vLLM server on the host
+# (scripts/serve_vllm.sh, port 8001): LLM_BACKEND=vllm docker compose up
+services:
+  api:
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+    image: egypt-law-rag-api:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false        # without it /health works and /ask explains the missing key
+    environment:
+      LLM_BACKEND: ${LLM_BACKEND:-bedrock}
+      VLLM_BASE_URL: http://host.docker.internal:8001/v1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

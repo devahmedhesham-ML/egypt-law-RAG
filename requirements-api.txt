@@ -1,0 +1,13 @@
+# Production API image only (Dockerfile): what `python -m rag.api` imports, nothing else.
+# Locked in requirements-api.lock with CPU-only torch; versions follow requirements.lock.
+fastapi>=0.115
+uvicorn>=0.30
+pyyaml>=6.0
+python-dotenv>=1.0
+numpy
+tqdm>=4.66
+openai>=1.50
+langfuse>=4.15
+chromadb==1.5.9          # must match the version that wrote the index
+sentence-transformers>=3.0
+torch                    # CPU build: embedding one question takes ~0.1 s

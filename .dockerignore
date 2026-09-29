@@ -1,0 +1,11 @@
+# Allowlist: only what the image needs. Keeps .env (secrets), venvs, the PDF and the DVC cache out.
+*
+!pyproject.toml
+!params.yaml
+!dvc.yaml
+!dvc.lock
+!.dvc/config
+!requirements-api.lock
+!src/
+**/__pycache__
+**/*.pyc

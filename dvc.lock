@@ -10,8 +10,8 @@ stages:
       isexec: true
     - path: src/rag/corpus
       hash: md5
-      md5: 39e942cbd128834905ca01ad1995c584.dir
-      size: 164034
+      md5: c727e568025b73fe12baacd9d3c9f0f3.dir
+      size: 169679
       nfiles: 18
     params:
       params.yaml:
@@ -44,7 +44,7 @@ stages:
       isexec: true
     - path: data/processed/corpus_report.json
       hash: md5
-      md5: 39a30e1eb3e6866ac4fc91bac5906631
+      md5: 33574a230a897b50e066bbca0f8db930
       size: 46582
       isexec: true
   index:
@@ -67,8 +67,8 @@ stages:
       isexec: true
     - path: src/rag/ingest
       hash: md5
-      md5: da7d05572de2d67da18013d54cc98253.dir
-      size: 85402
+      md5: 7a819c9bcd36b198723a3b1773d5d5a2.dir
+      size: 94323
       nfiles: 10
     params:
       params.yaml:
@@ -85,11 +85,11 @@ stages:
     outs:
     - path: data/index/chroma
       hash: md5
-      md5: 0fcda3e7ca639191b547673bff38e7ee.dir
-      size: 23622392
+      md5: f2bcf0953d962a4f056249f2437dc2c5.dir
+      size: 23622528
       nfiles: 6
     - path: data/processed/index_report.json
       hash: md5
-      md5: e079c98b59fbafb3a9be8bd9c045b833
-      size: 2337
+      md5: 8a97b8746be0311653997642f2087470
+      size: 2338
       isexec: true

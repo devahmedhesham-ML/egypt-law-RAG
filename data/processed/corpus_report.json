@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-09-28T13:09:44+00:00",
+ "generated_at": "2026-09-28T15:11:07+00:00",
  "pdf": "data/raw/egyptian_civil_code.pdf",
  "pdf_sha256": "2d6419fb262dab712f7bf5f6e31834bea74fbcf03b78ae081dd35d156915eebf",
  "articles_sha256": "7b00bde89b9b58e60e7bcac5cd527cfa0fc3e77dc893d0b876d4d2f1a1ed4906",
@@ -2012,5 +2012,5 @@
    "page": 170
   }
  ],
- "elapsed_s": 3.16
+ "elapsed_s": 3.51
 }

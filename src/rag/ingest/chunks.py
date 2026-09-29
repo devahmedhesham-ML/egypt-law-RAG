@@ -1,8 +1,17 @@
-"""Corpus records → one bilingual chunk per article, so the top 10 hits are always 10 different articles."""
+"""Corpus records → chunks for the index.
+
+Strategies (params.yaml ingest.chunking):
+- article (default): one bilingual chunk per article, so the top 10 hits are always 10 different articles
+- window: articles longer than `chunk_size` tokens are split into windows with `overlap` tokens shared
+  between neighbours; every window repeats the heading path and article number
+- per_language: one Arabic and one English chunk per article, so a query meets text in its own language
+Retrieval maps chunks back to articles (best-scoring chunk wins), so answers always cite whole articles.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from rag.corpus.hierarchy import AR_ORDINAL_WORD
 from rag.corpus.normalize import normalize_ar
@@ -43,14 +52,27 @@ def heading_path(r: dict) -> str:
     return " > ".join(parts)
 
 
-def chunk_text(r: dict) -> str:
+STRATEGIES = ("article", "window", "per_language")
+
+
+def chunk_header(r: dict) -> str:
     n = r["article_number"]
+    label = f"Article {n} | مادة {n}" + (" (repealed | ملغاة)" if r["is_repealed"] else "")
+    return "\n".join(x for x in (heading_path(r), label) if x)
+
+
+def chunk_body(r: dict, lang: str | None = None) -> str:
+    """Article text: both languages, or one (`ar` / `en`). Repealed articles carry their repeal note."""
     if r["is_repealed"]:  # indexed, so "what does Article 60 say?" retrieves "repealed" instead of a guess
-        body = "\n".join(x for x in (r.get("repeal_note_ar"), r.get("repeal_note")) if x)
-        lines = [heading_path(r), f"Article {n} | مادة {n} (repealed | ملغاة)", body]
+        ar, en = r.get("repeal_note_ar"), r.get("repeal_note")
     else:
-        lines = [heading_path(r), f"Article {n} | مادة {n}", r["text_ar"], r["text_en"]]
-    return "\n".join(x for x in lines if x)
+        ar, en = r["text_ar"], r["text_en"]
+    parts = {"ar": [ar], "en": [en], None: [ar, en]}[lang]
+    return "\n".join(x for x in parts if x)
+
+
+def chunk_text(r: dict) -> str:
+    return "\n".join(x for x in (chunk_header(r), chunk_body(r)) if x)
 
 
 def chunk_metadata(r: dict) -> dict:
@@ -71,18 +93,64 @@ def chunk_metadata(r: dict) -> dict:
     return meta
 
 
-def build_chunks(records: list[dict], normalize_arabic: bool = False) -> list[Chunk]:
+def windows(text: str, size: int, overlap: int, tokenizer: Any) -> list[str]:
+    """Split text into pieces of at most `size` tokens, `overlap` tokens shared; cut at token boundaries."""
+    offsets = tokenizer(text, add_special_tokens=False, return_offsets_mapping=True)["offset_mapping"]
+    if len(offsets) <= size:
+        return [text]
+    step = size - overlap
+    out = []
+    for start in range(0, len(offsets), step):
+        end = min(start + size, len(offsets))
+        out.append(text[offsets[start][0]: offsets[end - 1][1]].strip())
+        if end == len(offsets):
+            break
+    return out
+
+
+def _chunk(r: dict, suffix: str, header: str, body: str, normalize_arabic: bool, extra: dict) -> Chunk:
+    text = "\n".join(x for x in (header, body) if x)
+    return Chunk(
+        id=f"art-{r['article_number']:04d}{suffix}",
+        article_number=r["article_number"],
+        text=text,
+        embed_text=normalize_ar(text) if normalize_arabic else text,
+        metadata={**chunk_metadata(r), **extra},
+    )
+
+
+def build_chunks(records: list[dict], normalize_arabic: bool = False, *, strategy: str = "article",
+                 chunk_size: int | None = None, overlap: int = 0, tokenizer: Any = None) -> list[Chunk]:
+    if strategy not in STRATEGIES:
+        raise ValueError(f"unknown chunking strategy {strategy!r} (expected one of {STRATEGIES})")
+    if strategy == "window":
+        if not chunk_size or tokenizer is None:
+            raise ValueError("window chunking needs chunk_size and the embedding model's tokenizer")
+        if not 0 <= overlap < chunk_size:
+            raise ValueError("overlap must be >= 0 and smaller than chunk_size")
     chunks = []
     for r in records:
-        text = chunk_text(r)
-        chunks.append(Chunk(
-            id=f"art-{r['article_number']:04d}",
-            article_number=r["article_number"],
-            text=text,
-            embed_text=normalize_ar(text) if normalize_arabic else text,
-            metadata=chunk_metadata(r),
-        ))
+        header = chunk_header(r)
+        if strategy == "article":
+            chunks.append(_chunk(r, "", header, chunk_body(r), normalize_arabic, {}))
+        elif strategy == "per_language" and not r["is_repealed"]:
+            for lang in ("ar", "en"):
+                chunks.append(_chunk(r, f"-{lang}", header, chunk_body(r, lang), normalize_arabic, {"lang": lang}))
+        elif strategy == "per_language":  # a repeal note is one short bilingual chunk
+            chunks.append(_chunk(r, "", header, chunk_body(r), normalize_arabic, {}))
+        else:
+            header_tokens = len(tokenizer(header, add_special_tokens=False)["input_ids"]) + 1
+            size = max(chunk_size - header_tokens, overlap + 16)
+            pieces = windows(chunk_body(r), size, overlap, tokenizer)
+            for i, piece in enumerate(pieces):
+                suffix = f"-w{i:02d}" if len(pieces) > 1 else ""
+                chunks.append(_chunk(r, suffix, header, piece, normalize_arabic, {"window": i}))
     return chunks
+
+
+def chunks_per_article(strategy: str) -> int:
+    """How many chunks to fetch per wanted article, so k distinct articles survive de-duplication."""
+    return 1 if strategy == "article" else 4
 
 
 def query_text(question: str, normalize_arabic: bool = False) -> str:

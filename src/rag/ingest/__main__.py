@@ -26,9 +26,9 @@ from rag import tracing
 from rag.corpus.build import print_issues, write_json
 from rag.corpus.issues import Issue, warning
 from rag.corpus.validate import validate_records
-from rag.ingest.chunks import build_chunks, query_text
+from rag.ingest.chunks import build_chunks, chunks_per_article, query_text
 from rag.ingest.embed import GpuEmbedder, weights_mb
-from rag.ingest.store import collection_name, search, write_index
+from rag.ingest.store import best_per_article, collection_name, search, write_index
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -109,19 +109,24 @@ def _index(args, cfg: dict, ccfg: dict, lf, root) -> int:
         span.update(output=_issue_counts(issues))
 
     # 2) chunks, and whether any would be truncated by the model
-    chunks = build_chunks(records, cfg["normalize_arabic"])
     if weights_mb(cfg["model"]) != 1500.0:  # weights cached locally: no Hub round-trips
         os.environ.setdefault("HF_HUB_OFFLINE", "1")
     from transformers import AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(cfg["model"])
+    chunking = cfg.get("chunking") or {"strategy": "article"}
+    chunks = build_chunks(records, cfg["normalize_arabic"], strategy=chunking["strategy"],
+                          chunk_size=chunking.get("chunk_size"), overlap=chunking.get("overlap") or 0,
+                          tokenizer=tokenizer)
     tokens = [len(ids) for ids in tokenizer([c.embed_text for c in chunks])["input_ids"]]
     for c, t in zip(chunks, tokens):
         if t > cfg["max_chunk_tokens"]:
             issues.append(warning("CHUNK_TOO_LONG", f"{t:,} tokens > {cfg['max_chunk_tokens']:,}: the model would "
                                                     "cut the end of this article", article=c.article_number))
-    t = Table(title="Chunks: one per article, Arabic + English + heading path", show_header=False, title_justify="left")
-    t.add_row("Chunks", f"{len(chunks):,} ({sum(r['is_repealed'] for r in records)} repealed, indexed with their note)")
+    t = Table(title=f"Chunks ({chunking['strategy']}): heading path + article text", show_header=False,
+              title_justify="left")
+    t.add_row("Chunks", f"{len(chunks):,} for {len(records):,} articles "
+                        f"({sum(r['is_repealed'] for r in records)} repealed, indexed with their note)")
     t.add_row("Tokens", f"{sum(tokens):,} total · median {statistics.median(tokens):.0f} · max {max(tokens):,} "
                         f"(Article {chunks[tokens.index(max(tokens))].article_number})")
     t.add_row("Model", f"{cfg['model']} · Arabic normalization {'on' if cfg['normalize_arabic'] else 'off'}")
@@ -170,7 +175,9 @@ def _index(args, cfg: dict, ccfg: dict, lf, root) -> int:
         st.add_column(col)
     with lf.start_as_current_observation(as_type="evaluator", name="run-smoke-queries",
                                          input=[{"query": q, "expected": e} for q, e in SMOKE_QUERIES]) as span:
-        for (question, expected), hits in zip(SMOKE_QUERIES, search(index_dir, name, query_vectors, k=10)):
+        fanout = chunks_per_article(chunking["strategy"])
+        for (question, expected), hits in zip(SMOKE_QUERIES, search(index_dir, name, query_vectors, k=10 * fanout)):
+            hits = best_per_article(hits)[:10]
             numbers = [h["article_number"] for h in hits]
             rank = numbers.index(expected) + 1 if expected in numbers else None
             smoke.append({"query": question, "expected": expected, "rank": rank, "top": numbers,

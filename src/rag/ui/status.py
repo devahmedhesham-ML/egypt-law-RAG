@@ -130,6 +130,26 @@ def _api() -> Stage:
                  f"Healthy at {base_url}: {body['documents_indexed']:,} documents indexed.")
 
 
+def _mlflow() -> Stage:
+    title = "MLflow chunking experiments"
+    db = REPO_ROOT / "mlflow.db"
+    if not db.exists():
+        return Stage("mlflow", "Evaluation", title, PLANNED,
+                     "Chunking experiments: strategy, chunk_size, overlap, embedding model, retrieval metrics, faithfulness.",
+                     "python -m rag.experiments.chunking --faithfulness")
+    import sqlite3
+
+    try:
+        with sqlite3.connect(f"file:{db}?mode=ro", uri=True) as con:
+            (n,) = con.execute("SELECT COUNT(*) FROM runs r JOIN experiments e ON r.experiment_id = e.experiment_id "
+                               "WHERE e.name = 'chunking' AND r.lifecycle_stage = 'active'").fetchone()
+    except sqlite3.Error as e:
+        return Stage("mlflow", "Evaluation", title, OFFLINE, f"mlflow.db unreadable: {e}")
+    return Stage("mlflow", "Evaluation", title, WORKING if n else PLANNED,
+                 f"{n} runs in mlflow.db (experiment 'chunking'); summary in reports/chunking_experiments.md. "
+                 "Open with: mlflow ui --backend-store-uri sqlite:///mlflow.db")
+
+
 def _tracing() -> Stage:
     from rag import tracing
 
@@ -159,8 +179,6 @@ def _static() -> list[Stage]:
               "Production API with streaming. The console talks to its own dev server meanwhile.", "TASKS: Serve"),
         Stage("feedback", "Observability", "Tester feedback", WORKING,
               f"{feedback_n} ratings recorded in data/feedback/feedback.jsonl."),
-        Stage("mlflow", "Evaluation", "MLflow experiments", PLANNED,
-              "Chunking experiments: chunk_size, overlap, embedding model, faithfulness.", "TASKS: MLflow"),
         Stage("ragas", "Evaluation", "RAGAS evaluation", PLANNED,
               "Faithfulness, answer relevancy, context precision/recall on 50+ questions.", "TASKS: RAGAS"),
         Stage("awq", "Optimization", "Own AWQ-4bit quantization", PLANNED,
@@ -170,7 +188,8 @@ def _static() -> list[Stage]:
     ]
 
 
-_LIVE: list[Callable[[], Stage]] = [_source_pdf, _corpus, _index, _retrieval, _bedrock, _vllm, _api, _tracing]
+_LIVE: list[Callable[[], Stage]] = [_source_pdf, _corpus, _index, _retrieval, _bedrock, _vllm, _api, _mlflow,
+                                  _tracing]
 
 
 def collect_status() -> list[dict]:

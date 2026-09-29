@@ -98,3 +98,69 @@ def test_chroma_round_trip(tmp_path):
     hits = search(tmp_path / "chroma", name, vectors[1:2], k=2)[0]
     assert hits[0]["article_number"] == 60 and hits[0]["score"] > 0.99 and hits[0]["is_repealed"] is True
     assert index_count(tmp_path / "chroma", name) == 2 and index_count(tmp_path / "missing", name) is None
+
+
+class WordTokenizer:
+    """One token per whitespace-separated word, with character offsets like a fast HF tokenizer."""
+
+    def __call__(self, text, add_special_tokens=False, return_offsets_mapping=False):
+        import re
+
+        spans = [m.span() for m in re.finditer(r"\S+", text)]
+        return {"input_ids": list(range(len(spans))), "offset_mapping": spans}
+
+
+def test_article_strategy_is_the_default_and_unchanged():
+    assert [c.text for c in build_chunks([A44, A60], strategy="article")] == [chunk_text(A44), chunk_text(A60)]
+    assert [c.id for c in build_chunks([A44])] == ["art-0044"]
+
+
+def test_per_language_splits_live_articles_but_not_repeal_notes():
+    chunks = build_chunks([A44, A60], strategy="per_language")
+    assert [c.id for c in chunks] == ["art-0044-ar", "art-0044-en", "art-0060"]
+    ar, en = chunks[0], chunks[1]
+    assert "سن الرشد" in ar.text and "majority" not in ar.text and ar.metadata["lang"] == "ar"
+    assert "majority" in en.text and "سن الرشد" not in en.text
+    assert all("Article 44 | مادة 44" in c.text for c in (ar, en))  # both keep the heading and number
+
+
+def test_window_splits_long_articles_with_overlap_and_keeps_the_heading():
+    long = {**A44, "text_ar": " ".join(f"كلمة{i}" for i in range(60)), "text_en": ""}
+    tok = WordTokenizer()
+    chunks = build_chunks([long], strategy="window", chunk_size=40, overlap=5, tokenizer=tok)
+    assert len(chunks) > 1 and [c.id for c in chunks][:2] == ["art-0044-w00", "art-0044-w01"]
+    bodies = [c.text.split("\n")[-1].split() for c in chunks]
+    assert bodies[0][-5:] == bodies[1][:5]  # neighbours share `overlap` tokens
+    assert {w for b in bodies for w in b} == {f"كلمة{i}" for i in range(60)}  # nothing lost
+    assert all("Article 44 | مادة 44" in c.text and c.article_number == 44 for c in chunks)
+    short = build_chunks([A44], strategy="window", chunk_size=400, overlap=20, tokenizer=tok)
+    assert [c.id for c in short] == ["art-0044"]  # short articles stay whole
+
+
+def test_window_needs_a_size_and_a_tokenizer():
+    import pytest
+
+    with pytest.raises(ValueError):
+        build_chunks([A44], strategy="window", chunk_size=100)
+    with pytest.raises(ValueError):
+        build_chunks([A44], strategy="window", chunk_size=100, overlap=100, tokenizer=WordTokenizer())
+    with pytest.raises(ValueError):
+        build_chunks([A44], strategy="sentences")
+
+
+def test_best_chunk_per_article_keeps_rank_order():
+    from rag.ingest.store import best_per_article
+
+    hits = [{"article_number": 5, "score": 0.9}, {"article_number": 7, "score": 0.8},
+            {"article_number": 5, "score": 0.7}, {"article_number": 9, "score": 0.6}]
+    assert [(h["article_number"], h["score"]) for h in best_per_article(hits)] == [(5, 0.9), (7, 0.8), (9, 0.6)]
+
+
+def test_query_prompt_only_when_the_model_defines_one():
+    from types import SimpleNamespace as NS
+
+    from rag.ingest.embed import query_prompt_name
+
+    assert query_prompt_name(NS(prompts={"query": "Instruct: ...", "document": ""})) == "query"
+    assert query_prompt_name(NS(prompts={})) is None
+    assert query_prompt_name(object()) is None

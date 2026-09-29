@@ -53,6 +53,14 @@ def search(path: Path, name: str, query_vectors: np.ndarray, k: int = 10) -> lis
     ]
 
 
+def best_per_article(hits: list[dict]) -> list[dict]:
+    """Chunk hits (best first) → one hit per article, keeping each article's best chunk and the order."""
+    best: dict[int, dict] = {}
+    for h in hits:
+        best.setdefault(h["article_number"], h)
+    return list(best.values())
+
+
 def index_count(path: Path, name: str) -> int | None:
     """Vectors in the collection, or None if the index is missing."""
     if not path.exists():

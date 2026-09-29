@@ -27,6 +27,11 @@ from tqdm import tqdm
 MB = 1024 * 1024
 
 
+def query_prompt_name(model) -> str | None:
+    """Qwen3 embeds questions with its own "query" instruction; models without one (bge-m3) take them as-is."""
+    return "query" if "query" in (getattr(model, "prompts", None) or {}) else None
+
+
 @dataclass(frozen=True)
 class GpuMemory:
     name: str
@@ -144,7 +149,8 @@ def _worker(rank: int, cfg: WorkerConfig, jobs, results) -> None:
         while (job := jobs.get()) is not None:
             kind, batch_id, texts = job
             with torch.inference_mode():
-                vectors = model.encode(texts, batch_size=len(texts), prompt_name="query" if kind == "query" else None,
+                vectors = model.encode(texts, batch_size=len(texts),
+                                       prompt_name=query_prompt_name(model) if kind == "query" else None,
                                        normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False)
             results.put(("done", rank, (kind, batch_id, np.asarray(vectors, dtype=np.float32))))
         results.put(("exit", rank, None))
@@ -372,7 +378,7 @@ class GpuEmbedder:
                                            convert_to_numpy=True, show_progress_bar=False)
                 bar.update(len(idx))
         query_batches = [list(range(len(queries)))] if queries else []
-        query_vecs = {0: model.encode(list(queries), prompt_name="query", normalize_embeddings=True,
+        query_vecs = {0: model.encode(list(queries), prompt_name=query_prompt_name(model), normalize_embeddings=True,
                                       convert_to_numpy=True)} if queries else {}
         embed_s = time.perf_counter() - embed_started
         stats = EmbedStats("cpu", None, 1, 0, 0, 0, 0, 0, len(batches), min(self.tokens_per_batch, 4096), len(docs),

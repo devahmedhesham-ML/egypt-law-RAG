@@ -37,7 +37,25 @@ ingest:
   index_dir: data/index/chroma
   report: data/processed/index_report.json
   normalize_arabic: false            # strip tashkeel/tatweel and unify alef variants before embedding
+  chunking:                          # article | window | per_language (src/rag/ingest/chunks.py)
+    strategy: article                # one bilingual chunk per article
+    chunk_size: null                 # window only: max tokens per chunk, heading included
+    overlap: 0                       # window only: tokens shared by neighbouring windows
   max_chunk_tokens: 8192             # longer chunks are flagged (the model would truncate them)
   tokens_per_batch: 4096             # padded tokens per GPU batch (length-sorted); fastest measured, see README
   max_replicas: 4                    # upper bound; auto adds replicas only if they fit AND the GPU has idle cores
   vram_margin_gb: 2.0                # free VRAM always left untouched (Windows, vLLM, others)
+
+experiments:                         # python -m rag.experiments.chunking → MLflow (sqlite:///mlflow.db)
+  questions: eval/questions.jsonl
+  index_dir: data/experiments/chroma # one throwaway index per config; production data/index is untouched
+  top_k: 5                           # hit@k / recall@k cut-off; matches retrieval.top_k
+  chunking:                          # each entry is one MLflow run (overlap in tokens)
+    - {strategy: article, model: Qwen/Qwen3-Embedding-0.6B}
+    - {strategy: per_language, model: Qwen/Qwen3-Embedding-0.6B}
+    - {strategy: window, chunk_size: 128, overlap: 16, model: Qwen/Qwen3-Embedding-0.6B}
+    - {strategy: window, chunk_size: 256, overlap: 32, model: Qwen/Qwen3-Embedding-0.6B}
+    - {strategy: window, chunk_size: 512, overlap: 64, model: Qwen/Qwen3-Embedding-0.6B}
+    - {strategy: article, model: BAAI/bge-m3}
+    - {strategy: per_language, model: BAAI/bge-m3}
+    - {strategy: window, chunk_size: 256, overlap: 32, model: BAAI/bge-m3}

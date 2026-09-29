@@ -59,9 +59,10 @@ def _finish(result: LLMResult, articles: Sequence[Article]) -> AnswerResult:
         ev.update(output={"cited": check.cited, "valid": check.valid, "outside_context": check.invalid},
                   **({"level": "WARNING", "status_message": "cites articles that were not in the context"}
                      if check.invalid else {}))
-        lf.score_current_trace(name="citations_outside_context", value=len(check.invalid), data_type="NUMERIC",
-                               comment=", ".join(map(str, check.invalid)) or None)
-        lf.score_current_trace(name="answer_has_citations", value=1 if check.cited else 0, data_type="BOOLEAN")
+        if tracing.enabled():  # with tracing off there is no trace to score (and Langfuse logs an error per call)
+            lf.score_current_trace(name="citations_outside_context", value=len(check.invalid), data_type="NUMERIC",
+                                   comment=", ".join(map(str, check.invalid)) or None)
+            lf.score_current_trace(name="answer_has_citations", value=1 if check.cited else 0, data_type="BOOLEAN")
     return AnswerResult(text=result.text, citations=check, llm=result)
 
 

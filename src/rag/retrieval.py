@@ -19,8 +19,8 @@ import numpy as np
 import yaml
 
 from rag import tracing
-from rag.ingest.chunks import query_text
-from rag.ingest.embed import gpu_memory
+from rag.ingest.chunks import chunks_per_article, query_text
+from rag.ingest.embed import gpu_memory, query_prompt_name
 from rag.ingest.store import collection_name, search
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -68,6 +68,7 @@ class Retriever:
         self.first, self.last = corpus["first_article"], corpus["last_article"]
         self.index_dir = REPO_ROOT / self.cfg["index_dir"]
         self.collection = collection_name(self.cfg["collection"], self.cfg["model"])
+        self.fanout = chunks_per_article(self.cfg.get("chunking", {}).get("strategy", "article"))
         self._encode = encode
         self._searcher = searcher or (lambda v, k: search(self.index_dir, self.collection, v, k)[0])
         self._lock = threading.Lock()
@@ -90,8 +91,9 @@ class Retriever:
                         kwargs["model_kwargs"] = {"dtype": torch.float16}
                     model = SentenceTransformer(self.cfg["model"], device=self.device, **kwargs)
                     normalize = self.cfg["normalize_arabic"]
+                    prompt = query_prompt_name(model)
                     self._encode = lambda q: model.encode(
-                        [query_text(q, normalize)], prompt_name="query", normalize_embeddings=True)
+                        [query_text(q, normalize)], prompt_name=prompt, normalize_embeddings=True)
                     span.update(output={"device": self.device},
                                 metadata={"free_gpu_mb": mem.free_mb if mem else None,
                                           "min_free_gpu_mb": MIN_FREE_GPU_MB})
@@ -113,7 +115,7 @@ class Retriever:
             ) as emb:
                 vector = np.asarray(encode(question), dtype=np.float32)
                 emb.update(output={"dimensions": int(vector.shape[-1])})
-            semantic = self._searcher(vector, k + len(named))
+            semantic = self._searcher(vector, (k + len(named)) * self.fanout)  # chunks → k distinct articles
             hits = merge_hits(named, semantic, k)
             latency = round(time.perf_counter() - started, 3)
             span.update(

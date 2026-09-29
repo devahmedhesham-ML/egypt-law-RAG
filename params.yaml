@@ -7,7 +7,10 @@ llm:
     base_url: https://bedrock-mantle.eu-north-1.api.aws/v1   # overridden by OPENAI_BASE_URL
   vllm:
     model: Qwen/Qwen2.5-7B-Instruct-AWQ
-    base_url: http://localhost:8000/v1                        # overridden by VLLM_BASE_URL
+    base_url: http://localhost:8001/v1                        # overridden by VLLM_BASE_URL (8000 is the API)
+
+retrieval:
+  top_k: 5                 # articles sent to the model per question (API, evaluation)
 
 corpus:
   pdf: data/raw/egyptian_civil_code.pdf

@@ -133,7 +133,7 @@ def test_bedrock_rate_limit_becomes_actionable_error():
 PARAMS = {
     "backend": "vllm",
     "bedrock": {"model": "openai.gpt-oss-120b", "base_url": "https://bedrock-mantle.eu-north-1.api.aws/v1"},
-    "vllm": {"model": "qwen", "base_url": "http://localhost:8000/v1"},
+    "vllm": {"model": "qwen", "base_url": "http://localhost:8001/v1"},
 }
 
 

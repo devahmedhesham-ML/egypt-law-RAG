@@ -14,4 +14,4 @@ export VLLM_USE_FLASHINFER_SAMPLER=0
 exec "$VENV/bin/vllm" serve "$MODEL" \
   --gpu-memory-utilization 0.75 \
   --max-model-len 8192 \
-  --port 8000
+  --port 8001

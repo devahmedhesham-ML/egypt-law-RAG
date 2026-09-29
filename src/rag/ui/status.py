@@ -115,6 +115,21 @@ def _vllm() -> Stage:
     return Stage("llm_vllm", "Generation", title, WORKING, f"Serving on {base_url}.")
 
 
+def _api() -> Stage:
+    title = "Q&A API (/ask, /health)"
+    base_url = os.environ.get("RAG_API_URL", "http://localhost:8000")
+    try:
+        r = httpx.get(f"{base_url}/health", timeout=2)
+        body = r.json()
+    except Exception:  # noqa: BLE001
+        return Stage("api", "Serving", title, OFFLINE, f"Not running at {base_url}.",
+                     "python -m rag.api, or docker compose up")
+    if r.status_code != 200:
+        return Stage("api", "Serving", title, OFFLINE, f"Up at {base_url} but unhealthy: {body}.", "python -m rag.ingest")
+    return Stage("api", "Serving", title, WORKING,
+                 f"Healthy at {base_url}: {body['documents_indexed']:,} documents indexed.")
+
+
 def _tracing() -> Stage:
     from rag import tracing
 
@@ -155,7 +170,7 @@ def _static() -> list[Stage]:
     ]
 
 
-_LIVE: list[Callable[[], Stage]] = [_source_pdf, _corpus, _index, _retrieval, _bedrock, _vllm, _tracing]
+_LIVE: list[Callable[[], Stage]] = [_source_pdf, _corpus, _index, _retrieval, _bedrock, _vllm, _api, _tracing]
 
 
 def collect_status() -> list[dict]:

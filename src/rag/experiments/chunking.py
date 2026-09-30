@@ -154,11 +154,13 @@ class Faithfulness:
 
 
 # --- one config -------------------------------------------------------------------------------
-def run_config(cfg: dict, records: list[dict], questions: list[dict], exp: dict, ingest: dict, *,
-               faith: Faithfulness | None, console: Console) -> tuple[dict, list[dict], dict]:
+def embed_and_index(cfg: dict, records: list[dict], questions: list[dict], exp: dict, ingest: dict, *,
+                    console: Console) -> dict:
+    """Chunk → embed on the GPU (utilization sampled) → throwaway Chroma index → cost and speed measurements."""
     from transformers import AutoTokenizer
 
-    k = exp["top_k"]
+    from rag.experiments import perf
+
     model = cfg["model"]
     tokenizer = AutoTokenizer.from_pretrained(model)
     chunks = build_chunks(records, ingest["normalize_arabic"], strategy=cfg["strategy"],
@@ -168,14 +170,42 @@ def run_config(cfg: dict, records: list[dict], questions: list[dict], exp: dict,
     embedder = GpuEmbedder(model, tokens_per_batch=ingest["tokens_per_batch"], max_replicas=1,
                            margin_gb=ingest["vram_margin_gb"], max_seq_len=max_len, log=console.print)
     queries = [query_text(q["question"], ingest["normalize_arabic"]) for q in questions]
-    started = time.perf_counter()
-    vectors, query_vectors, stats = embedder.run([c.embed_text for c in chunks], tokens, queries)
+    with perf.GpuSampler() as sampler:
+        sampler.idle(1.0)
+        vectors, query_vectors, stats = embedder.run([c.embed_text for c in chunks], tokens, queries)
     index_dir = REPO_ROOT / exp["index_dir"] / run_name(cfg).lower()
     name = collection_name("civil_code", model)
+    started = time.perf_counter()
     write_index(index_dir, name, chunks, vectors, {"embedding_model": model, "strategy": cfg["strategy"]})
     fanout = chunks_per_article(cfg["strategy"])
+
+    # cost and speed: reports/chunking_experiments.md, section "Embedding cost and speed"
+    console.print("Measuring query latency (GPU, CPU) and search latency…")
+    measured = {
+        "chunks": len(chunks), "chunk_tokens_mean": statistics.fmean(tokens), "chunk_tokens_max": max(tokens),
+        "chunks_truncated": sum(t > max_len for t in tokens),
+        "embed_dim": int(vectors.shape[1]), "vectors_mb": vectors.shape[0] * vectors.shape[1] * 4 / perf.MB,
+        "index_disk_mb": perf.dir_size_mb(index_dir), "index_write_s": time.perf_counter() - started,
+        "embed_s": stats.embed_s, "embed_load_s": stats.load_s, "embed_chunks_per_s": stats.texts_per_s,
+        "embed_tokens_per_s": stats.tokens_per_s, "embed_ms_per_chunk": 1000 * stats.embed_s / len(chunks),
+        "embed_replicas": stats.replicas, "embed_batches": stats.batches,
+        "vram_replica_mb": stats.per_replica_mb, "vram_total_mb": stats.total_mb,
+        **sampler.last(stats.embed_s),
+        **perf.query_latency(model, queries, "cuda", max_len),
+        **perf.query_latency(model, queries, "cpu", max_len),
+        **perf.search_latency(index_dir, name, query_vectors, k=(DEPTH + 2) * fanout),
+    }
+    return {"chunks": chunks, "query_vectors": query_vectors, "index_dir": index_dir, "name": name,
+            "fanout": fanout, "device": stats.device, "measured": measured}
+
+
+def run_config(cfg: dict, records: list[dict], questions: list[dict], exp: dict, ingest: dict, *,
+               faith: Faithfulness | None, console: Console) -> tuple[dict, list[dict], dict]:
+    k = exp["top_k"]
+    built = embed_and_index(cfg, records, questions, exp, ingest, console=console)
+    index_dir, name, fanout = built["index_dir"], built["name"], built["fanout"]
     rows = []
-    for q, hits in zip(questions, search(index_dir, name, query_vectors, k=(DEPTH + 2) * fanout)):
+    for q, hits in zip(questions, search(index_dir, name, built["query_vectors"], k=(DEPTH + 2) * fanout)):
         semantic = best_per_article(hits)
         named = numbers_in_question(q["question"])
         ranked = [h.article_number for h in merge_hits(named, semantic, DEPTH)]
@@ -197,12 +227,31 @@ def run_config(cfg: dict, records: list[dict], questions: list[dict], exp: dict,
                 if lv:
                     metrics[f"faithfulness_{lang}"] = statistics.fmean(lv)
         metrics["faithfulness_judged"] = len(vals)
-    info = {
-        "chunks": len(chunks), "chunk_tokens_mean": statistics.fmean(tokens), "chunk_tokens_max": max(tokens),
-        "chunks_truncated": sum(t > max_len for t in tokens), "embed_s": stats.embed_s,
-        "index_s": time.perf_counter() - started, "device": stats.device,
-    }
-    return metrics, rows, info
+    return metrics, rows, {**built["measured"], "device": built["device"]}
+
+
+def measure_existing(mlflow, cfg: dict, records: list[dict], questions: list[dict], exp: dict, ingest: dict, *,
+                     console: Console) -> bool:
+    """--perf-only: re-embed a config with the measurements on and add them to its latest MLflow run.
+
+    Retrieval metrics and faithfulness in that run are left as they were (embedding the same corpus with the
+    same model gives the same vectors up to floating-point noise, so the retrieval results stand).
+    """
+    from rag.experiments import perf
+
+    exp_id = mlflow.get_experiment_by_name(EXPERIMENT).experiment_id
+    runs = mlflow.search_runs([exp_id], filter_string=f"attributes.run_name = '{run_name(cfg)}' and "
+                              "attributes.status = 'FINISHED'", order_by=["attributes.start_time DESC"],
+                              max_results=1, output_format="list")
+    if not runs:
+        console.print(f"[yellow]! no finished run for {run_name(cfg)}: run it first[/]")
+        return False
+    built = embed_and_index(cfg, records, questions, exp, ingest, console=console)
+    with mlflow.start_run(run_id=runs[0].info.run_id):
+        mlflow.log_metrics({k: float(v) for k, v in built["measured"].items()})
+        mlflow.set_tags({**perf.hardware_info(), "perf_measured_at": time.strftime("%Y-%m-%d"),
+                         "perf_git_sha": git_sha()})
+    return True
 
 
 def git_sha() -> str:
@@ -222,6 +271,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--concurrency", type=int, default=8, help="parallel Bedrock requests for --faithfulness")
     ap.add_argument("--report", default="reports/chunking_experiments.md")
     ap.add_argument("--report-only", action="store_true", help="rebuild the report from MLflow without running anything")
+    ap.add_argument("--perf-only", action="store_true",
+                    help="measure embedding cost/speed/hardware and add it to each config's latest run")
     args = ap.parse_args(argv)
 
     from dotenv import load_dotenv
@@ -237,7 +288,7 @@ def main(argv: list[str] | None = None) -> int:
     questions = [json.loads(line) for line in questions_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     configs = [c for i, c in enumerate(exp["chunking"]) if (args.only is None or i in args.only) and not args.report_only]
     faith = (Faithfulness({r["article_number"]: r for r in records}, concurrency=args.concurrency)
-             if args.faithfulness and configs else None)
+             if args.faithfulness and configs and not args.perf_only else None)
     draft = sum(q.get("status") == "draft" for q in questions)
     if draft:
         console.print(f"[yellow]! {draft}/{len(questions)} questions are still drafts (eval/README.md): "
@@ -248,9 +299,14 @@ def main(argv: list[str] | None = None) -> int:
     # Classic runs view (table, charts, Compare): without this tag MLflow 3 may show the GenAI evaluation layout,
     # whose Overview expects MLflow Tracing (we trace with Langfuse) and stays empty.
     mlflow.set_experiment_tag("mlflow.experimentKind", "custom_model_development")
+    from rag.experiments.perf import hardware_info
+
     for cfg in configs:
         name = run_name(cfg)
         console.rule(f"[bold]{name}")
+        if args.perf_only:
+            measure_existing(mlflow, cfg, records, questions, exp, ingest, console=console)
+            continue
         metrics, rows, info = run_config(cfg, records, questions, exp, ingest, faith=faith, console=console)
         with mlflow.start_run(run_name=name):
             mlflow.log_params({"strategy": cfg["strategy"], "chunk_size": cfg.get("chunk_size") or "whole article",
@@ -260,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
             mlflow.log_metrics({**metrics, **{k: float(v) for k, v in info.items() if isinstance(v, int | float)}})
             mlflow.set_tags({"git_sha": git_sha(), "eval_questions": len(questions), "eval_draft": draft,
                              "eval_sha256": hashlib.sha256(questions_path.read_bytes()).hexdigest()[:12],
-                             "device": info["device"]})
+                             "device": info["device"], **hardware_info(), "perf_measured_at": time.strftime("%Y-%m-%d")})
             mlflow.log_dict({"config": cfg, "questions": rows}, "per_question.json")
         console.print({k: round(v, 3) for k, v in metrics.items()})
 

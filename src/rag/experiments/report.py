@@ -31,7 +31,8 @@ def latest_runs(mlflow, grid: list[dict]) -> list[dict]:
         if r is None:
             continue
         rows = mlflow.artifacts.load_dict(f"runs:/{r.info.run_id}/per_question.json")["questions"]
-        out.append({"name": run_name(cfg), "cfg": cfg, "metrics": dict(r.data.metrics), "rows": rows})
+        out.append({"name": run_name(cfg), "cfg": cfg, "metrics": dict(r.data.metrics), "tags": dict(r.data.tags),
+                    "rows": rows})
     return out
 
 
@@ -58,6 +59,85 @@ def _cell(text: str) -> str:
 
 def _f(v: float | None) -> str:
     return "—" if v is None or (isinstance(v, float) and math.isnan(v)) else f"{v:.3f}"
+
+
+def _mb(v: float | None, digits: int = 1) -> str:
+    return "—" if v is None else f"{v:,.{digits}f} MB"
+
+
+def _gb(mb: float | None) -> str:
+    return "—" if mb is None else f"{mb / 1024:.2f} GB"
+
+
+def _ms(m: dict, prefix: str) -> str:
+    p50, p95 = m.get(f"{prefix}_ms_p50"), m.get(f"{prefix}_ms_p95")
+    return "—" if p50 is None else f"{p50:.1f} / {p95:.1f} ms"
+
+
+def _embedding_cost(add, runs: list[dict], base: dict) -> None:
+    measured = [r for r in runs if "vectors_mb" in r["metrics"]]
+    hw = next((r["tags"] for r in [base, *measured] if "hw_gpu" in r["tags"] or "hw_cpu" in r["tags"]), {})
+    add("## Embedding cost and speed\n")
+    if hw:
+        os_name = hw.get("hw_os", "").split("-x86_64")[0]
+        add(f"Measured on an **{hw.get('hw_gpu', 'no GPU')}** ({hw.get('hw_gpu_vram_gb', '?')} GB VRAM, driver "
+            f"{hw.get('hw_driver', '?')}, CUDA {hw.get('hw_cuda', '?')}, torch {hw.get('hw_torch', '?')}) and an "
+            f"**{hw.get('hw_cpu', '?')}** ({hw.get('hw_cpu_threads', '?')} threads, {hw.get('hw_ram_gb', '?')} GB RAM "
+            f"visible to the OS), {os_name}, on {hw.get('perf_measured_at', '?')}. Under WSL the GPU is shared with the "
+            "Windows desktop, so the idle load before each run is shown next to the numbers.\n")
+    add("### Size of the embeddings\n")
+    add("| Run | Vectors | Dimensions | Raw vectors (float32) | Chroma index on disk |")
+    add("|---|---|---|---|---|")
+    for r in measured:
+        m = r["metrics"]
+        add(f"| {r['name']} | {m.get('chunks', 0):,.0f} | {m.get('embed_dim', 0):.0f} | {_mb(m.get('vectors_mb'))} | "
+            f"{_mb(m.get('index_disk_mb'))} |")
+    add("")
+    add("### Building the index: embedding the whole corpus\n")
+    add("| Run | Embedding time | Chunks/s | Tokens/s | Per chunk (batched) | GPU busy, mean / max | "
+        "Idle before: busy / VRAM | VRAM of the model copy | GPU memory peak (whole device) |")
+    add("|---|---|---|---|---|---|---|---|---|")
+    for r in measured:
+        m = r["metrics"]
+        util = (f"{m['gpu_util_mean']:.0f}% / {m['gpu_util_max']:.0f}%" if "gpu_util_mean" in m else "—")
+        idle = (f"{m['gpu_util_idle']:.0f}% / {_gb(m.get('vram_idle_mb'))}" if "gpu_util_idle" in m else "—")
+        peak = (f"{_gb(m.get('vram_peak_device_mb'))} of {_gb(m.get('vram_total_mb'))}"
+                if "vram_peak_device_mb" in m else "—")
+        add(f"| {r['name']} | {m.get('embed_s', 0):.1f} s | {m.get('embed_chunks_per_s', 0):,.0f} | "
+            f"{m.get('embed_tokens_per_s', 0):,.0f} | {m.get('embed_ms_per_chunk', 0):.1f} ms | {util} | {idle} | "
+            f"{_gb(m.get('vram_replica_mb'))} | {peak} |")
+    add("")
+    add("### Answering a question: retrieval latency\n")
+    add("| Run | Embed the question, GPU (p50 / p95) | Embed the question, CPU (p50 / p95) | Vector search (p50 / p95) | "
+        "Model VRAM when answering |")
+    add("|---|---|---|---|---|")
+    for r in measured:
+        m = r["metrics"]
+        add(f"| {r['name']} | {_ms(m, 'query_gpu')} | {_ms(m, 'query_cpu')} | {_ms(m, 'search')} | "
+            f"{_gb(m.get('query_gpu_vram_mb'))} |")
+    add("")
+    add("How each number is measured:\n")
+    add("- **Vectors / dimensions**: one vector per chunk; both models output 1,024 numbers per vector.")
+    add("- **Raw vectors** = chunks × dimensions × 4 bytes (Chroma stores float32). **Chroma index on disk** is the "
+        "run's whole index directory: the vectors, the HNSW search graph, and a SQLite file with every chunk's text and "
+        "metadata, which is why it is several times the raw size.")
+    add("- **Embedding time**: the embedding phase only, for the whole corpus: fp16 on the GPU, one model copy, chunks "
+        "sorted by length and batched up to 4,096 padded tokens. Model loading is logged separately (`embed_load_s`). "
+        "**Per chunk (batched)** = time ÷ chunks: throughput, not the latency of embedding a single chunk.")
+    add("- **GPU busy**: NVML utilization (the share of time the GPU's cores were executing work), sampled every 0.1 s "
+        "during the embedding phase. It is device-wide, so it includes the idle load measured in the second before the "
+        "run started (**Idle before**).")
+    add("- **VRAM of the model copy**: the embedder measures how much device memory one loaded model uses while embedding "
+        "the longest batch; it plans how many copies fit from this number. **GPU memory peak** is the highest memory "
+        "use of the whole device during embedding, idle usage included.")
+    add("- **Embed the question**: each of the 62 questions embedded on its own, exactly as production does per request, "
+        "after 3 warm-up questions; p50 is the median, p95 the value 95% of questions stay under. GPU runs fp16 like the "
+        "production Retriever when the GPU has room; CPU runs fp32 on all threads, like the Docker image (no GPU). "
+        "**Model VRAM when answering** is PyTorch's peak allocation during these single questions.")
+    add("- **Vector search**: one Chroma query per question against the run's index, after a warm-up query, fetching "
+        "enough chunks to rank 10 distinct articles. Retrieval latency per question ≈ question embedding + vector search.")
+    add("- These were measured in a separate pass (`--perf-only`, same code and hardware) and added to the same MLflow "
+        "runs; the retrieval and faithfulness results above come from the original runs.\n")
 
 
 def build_report(runs: list[dict], questions: list[dict], production: dict | None, k: int, git: str,
@@ -164,6 +244,10 @@ def build_report(runs: list[dict], questions: list[dict], production: dict | Non
     add("Read the two columns together: the net (won − lost) is what moves the average, but large won *and* lost counts "
         "with a small net mean the two runs get *different* questions right, which a single average does not show.\n")
 
+    # --- embedding cost and speed ------------------------------------------------------------------------
+    if any("vectors_mb" in r["metrics"] for r in runs):
+        _embedding_cost(add, runs, base)
+
     # --- how a run works -----------------------------------------------------------------------------------
     add("## How a run works\n")
     add("1. **Chunk** the 1,149 articles with the run's strategy (below). Every chunk starts with the article's heading "
@@ -195,7 +279,8 @@ def build_report(runs: list[dict], questions: list[dict], production: dict | Non
         f"e.g. criminal penalties) that no article answers. The {n} in-scope questions ({n_ar} Arabic, {n_en} English) "
         "each list their **relevant articles**: the article(s) a correct answer rests on. "
         + (f"{n - len(multi)} have one; {len(multi)} have more (e.g. `{multi[0]['id']}`: Articles "
-           f"{' and '.join(map(str, multi[0]['relevant_articles']))}).\n" if multi else "Each has exactly one.\n"))
+           f"{' and '.join(map(str, multi[0]['relevant_articles']))}). " if multi else "Each has exactly one. ")
+        + "How the set was built, and its limits: [docs/evaluation-dataset.md](../docs/evaluation-dataset.md).\n")
 
     # --- columns -------------------------------------------------------------------------------------------
     add("## What each column means and how it is calculated\n")

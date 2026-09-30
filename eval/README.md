@@ -2,7 +2,8 @@
 
 `questions.jsonl` has 62 questions: 28 topics from all four books of the Civil Code, each asked once in Arabic and
 once in English, plus 2 that name an article by number and 4 out-of-scope questions the system should decline. It
-feeds the chunking experiments (MLflow), and later RAGAS and the CI gate.
+feeds the chunking experiments (MLflow), and later RAGAS and the CI gate. How it was built, how it is checked and
+its limits: [docs/evaluation-dataset.md](../docs/evaluation-dataset.md).
 
 | Field | Meaning |
 |---|---|

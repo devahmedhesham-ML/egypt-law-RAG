@@ -56,9 +56,14 @@ def test_report_explains_columns_with_a_worked_example_and_compares_runs():
                 {**qs[1], "ranked": ranked_ar, "hit_at_1": float(ranked_ar[0] == 418)},
                 {**qs[2], "ranked": [7]}]
         return {"name": name, "cfg": {"strategy": strategy, "model": "Qwen/Qwen3-Embedding-0.6B"},
-                "metrics": {"hit_at_1": 0.5, "chunks": 1149}, "rows": rows}
+                "metrics": {"hit_at_1": 0.5, "chunks": 1149}, "tags": {}, "rows": rows}
 
     prod = run("article__Qwen3-Embedding-0.6B", "article", [97, 418, 3], [418, 2, 3])
+    prod["metrics"].update({"vectors_mb": 4.49, "index_disk_mb": 22.5, "embed_dim": 1024, "embed_s": 8.7,
+                            "gpu_util_mean": 80.0, "gpu_util_max": 93.0, "gpu_util_idle": 15.0, "vram_idle_mb": 2700,
+                            "query_gpu_ms_p50": 15.0, "query_gpu_ms_p95": 17.2, "query_cpu_ms_p50": 58.1,
+                            "query_cpu_ms_p95": 73.1})
+    prod["tags"] = {"hw_gpu": "NVIDIA GeForce RTX 4070 Ti SUPER", "hw_cpu": "AMD Ryzen 7 9700X"}
     other = run("per_language__Qwen3-Embedding-0.6B", "per_language", [418, 1, 2], [5, 6, 418])
     md = build_report([prod, other], qs, prod["cfg"], 5, "abc123", "python -m rag.experiments.chunking")
 
@@ -68,3 +73,5 @@ def test_report_explains_columns_with_a_worked_example_and_compares_runs():
     assert "| per_language__Qwen3-Embedding-0.6B | 1 | 1 | 0 | 0 |" in md  # won q1-en, lost q1-ar at rank 1
     assert "3 of 3 questions are drafts" in md
     assert "## What each column means and how it is calculated" in md
+    assert "## Embedding cost and speed" in md and "RTX 4070 Ti SUPER" in md
+    assert "| 4.5 MB | 22.5 MB |" in md and "80% / 93%" in md and "15.0 / 17.2 ms" in md and "58.1 / 73.1 ms" in md

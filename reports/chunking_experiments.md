@@ -2,7 +2,7 @@
 
 Which way of cutting the Civil Code into chunks, and which embedding model, puts the right article in front of the model? Each row below is one configuration: the corpus is chunked and embedded its way, then every question goes through the same retrieval production uses, and the result is scored. Production today: **article__Qwen3-Embedding-0.6B**.
 
-> Generated 2026-09-29 by `python -m rag.experiments.chunking --faithfulness` (git 4bfb00d) from the latest MLflow run of each configuration (`mlflow.db`, experiment `chunking`; open it with `mlflow ui --backend-store-uri sqlite:///mlflow.db`).
+> Generated 2026-09-30 by `python -m rag.experiments.chunking --faithfulness` (git bbc1385) from the latest MLflow run of each configuration (`mlflow.db`, experiment `chunking`; open it with `mlflow ui --backend-store-uri sqlite:///mlflow.db`).
 > **62 of 62 questions are drafts awaiting legal review** ([eval/README.md](../eval/README.md)), so every number here is provisional.
 
 ## Results
@@ -51,6 +51,60 @@ Averages can hide trade-offs, so each run is compared with the baseline on the s
 
 Read the two columns together: the net (won − lost) is what moves the average, but large won *and* lost counts with a small net mean the two runs get *different* questions right, which a single average does not show.
 
+## Embedding cost and speed
+
+Measured on an **NVIDIA GeForce RTX 4070 Ti SUPER** (16.0 GB VRAM, driver 591.86, CUDA 13.0, torch 2.14.0+cu130) and an **AMD Ryzen 7 9700X 8-Core Processor** (16 threads, 15.2 GB RAM visible to the OS), Linux-6.6.87.2-microsoft-standard-WSL2, on 2026-09-30. Under WSL the GPU is shared with the Windows desktop, so the idle load before each run is shown next to the numbers.
+
+### Size of the embeddings
+
+| Run | Vectors | Dimensions | Raw vectors (float32) | Chroma index on disk |
+|---|---|---|---|---|
+| article__Qwen3-Embedding-0.6B | 1,149 | 1024 | 4.5 MB | 22.5 MB |
+| per_language__Qwen3-Embedding-0.6B | 2,242 | 1024 | 8.8 MB | 31.3 MB |
+| window-128o16__Qwen3-Embedding-0.6B | 9,744 | 1024 | 38.1 MB | 101.5 MB |
+| window-256o32__Qwen3-Embedding-0.6B | 1,842 | 1024 | 7.2 MB | 28.5 MB |
+| window-512o64__Qwen3-Embedding-0.6B | 1,181 | 1024 | 4.6 MB | 22.7 MB |
+| article__bge-m3 | 1,149 | 1024 | 4.5 MB | 22.5 MB |
+| per_language__bge-m3 | 2,242 | 1024 | 8.8 MB | 31.3 MB |
+| window-256o32__bge-m3 | 1,740 | 1024 | 6.8 MB | 26.6 MB |
+
+### Building the index: embedding the whole corpus
+
+| Run | Embedding time | Chunks/s | Tokens/s | Per chunk (batched) | GPU busy, mean / max | Idle before: busy / VRAM | VRAM of the model copy | GPU memory peak (whole device) |
+|---|---|---|---|---|---|---|---|---|
+| article__Qwen3-Embedding-0.6B | 9.0 s | 128 | 33,226 | 7.8 ms | 80% / 93% | 15% / 2.64 GB | 2.09 GB | 4.71 GB of 15.99 GB |
+| per_language__Qwen3-Embedding-0.6B | 11.0 s | 203 | 37,112 | 4.9 ms | 85% / 93% | 15% / 2.63 GB | 2.12 GB | 4.56 GB of 15.99 GB |
+| window-128o16__Qwen3-Embedding-0.6B | 33.1 s | 294 | 41,148 | 3.4 ms | 89% / 95% | 5% / 2.56 GB | 2.22 GB | 4.59 GB of 15.99 GB |
+| window-256o32__Qwen3-Embedding-0.6B | 10.6 s | 174 | 37,412 | 5.8 ms | 84% / 92% | 5% / 2.57 GB | 2.19 GB | 4.58 GB of 15.99 GB |
+| window-512o64__Qwen3-Embedding-0.6B | 8.9 s | 132 | 34,007 | 7.6 ms | 81% / 94% | 14% / 2.58 GB | 2.16 GB | 4.72 GB of 15.99 GB |
+| article__bge-m3 | 3.8 s | 305 | 74,819 | 3.3 ms | 63% / 82% | 5% / 2.57 GB | 2.08 GB | 4.00 GB of 15.99 GB |
+| per_language__bge-m3 | 5.0 s | 446 | 76,591 | 2.2 ms | 64% / 82% | 15% / 2.23 GB | 2.08 GB | 3.77 GB of 15.99 GB |
+| window-256o32__bge-m3 | 4.6 s | 377 | 78,484 | 2.6 ms | 67% / 83% | 14% / 2.24 GB | 2.08 GB | 3.71 GB of 15.99 GB |
+
+### Answering a question: retrieval latency
+
+| Run | Embed the question, GPU (p50 / p95) | Embed the question, CPU (p50 / p95) | Vector search (p50 / p95) | Model VRAM when answering |
+|---|---|---|---|---|
+| article__Qwen3-Embedding-0.6B | 15.0 / 19.1 ms | 56.2 / 67.3 ms | 10.2 / 11.4 ms | 1.13 GB |
+| per_language__Qwen3-Embedding-0.6B | 15.0 / 18.3 ms | 55.4 / 68.4 ms | 12.5 / 14.0 ms | 1.13 GB |
+| window-128o16__Qwen3-Embedding-0.6B | 14.8 / 18.6 ms | 55.9 / 71.3 ms | 12.7 / 14.6 ms | 1.13 GB |
+| window-256o32__Qwen3-Embedding-0.6B | 15.7 / 21.1 ms | 56.3 / 74.0 ms | 13.2 / 15.4 ms | 1.13 GB |
+| window-512o64__Qwen3-Embedding-0.6B | 15.4 / 18.6 ms | 55.1 / 71.5 ms | 12.7 / 13.9 ms | 1.13 GB |
+| article__bge-m3 | 5.9 / 7.1 ms | 69.3 / 88.2 ms | 10.1 / 10.9 ms | 1.07 GB |
+| per_language__bge-m3 | 5.8 / 6.9 ms | 70.0 / 89.3 ms | 12.5 / 13.3 ms | 1.07 GB |
+| window-256o32__bge-m3 | 6.0 / 9.6 ms | 75.3 / 100.3 ms | 14.0 / 15.5 ms | 1.07 GB |
+
+How each number is measured:
+
+- **Vectors / dimensions**: one vector per chunk; both models output 1,024 numbers per vector.
+- **Raw vectors** = chunks × dimensions × 4 bytes (Chroma stores float32). **Chroma index on disk** is the run's whole index directory: the vectors, the HNSW search graph, and a SQLite file with every chunk's text and metadata, which is why it is several times the raw size.
+- **Embedding time**: the embedding phase only, for the whole corpus: fp16 on the GPU, one model copy, chunks sorted by length and batched up to 4,096 padded tokens. Model loading is logged separately (`embed_load_s`). **Per chunk (batched)** = time ÷ chunks: throughput, not the latency of embedding a single chunk.
+- **GPU busy**: NVML utilization (the share of time the GPU's cores were executing work), sampled every 0.1 s during the embedding phase. It is device-wide, so it includes the idle load measured in the second before the run started (**Idle before**).
+- **VRAM of the model copy**: the embedder measures how much device memory one loaded model uses while embedding the longest batch; it plans how many copies fit from this number. **GPU memory peak** is the highest memory use of the whole device during embedding, idle usage included.
+- **Embed the question**: each of the 62 questions embedded on its own, exactly as production does per request, after 3 warm-up questions; p50 is the median, p95 the value 95% of questions stay under. GPU runs fp16 like the production Retriever when the GPU has room; CPU runs fp32 on all threads, like the Docker image (no GPU). **Model VRAM when answering** is PyTorch's peak allocation during these single questions.
+- **Vector search**: one Chroma query per question against the run's index, after a warm-up query, fetching enough chunks to rank 10 distinct articles. Retrieval latency per question ≈ question embedding + vector search.
+- These were measured in a separate pass (`--perf-only`, same code and hardware) and added to the same MLflow runs; the retrieval and faithfulness results above come from the original runs.
+
 ## How a run works
 
 1. **Chunk** the 1,149 articles with the run's strategy (below). Every chunk starts with the article's heading path and `Article N | مادة N`, so even a window from the middle of an article says where it comes from.
@@ -64,7 +118,7 @@ Chunking only changes *which* articles are retrieved: the model always receives 
 
 ## The questions
 
-`eval/questions.jsonl` has 62 questions: 28 topics asked once in Arabic and once in English, 2 that name an article by number, and 4 out of scope (outside the Civil Code, e.g. criminal penalties) that no article answers. The 58 in-scope questions (29 Arabic, 29 English) each list their **relevant articles**: the article(s) a correct answer rests on. 56 have one; 2 have more (e.g. `q26-ar`: Articles 968 and 969).
+`eval/questions.jsonl` has 62 questions: 28 topics asked once in Arabic and once in English, 2 that name an article by number, and 4 out of scope (outside the Civil Code, e.g. criminal penalties) that no article answers. The 58 in-scope questions (29 Arabic, 29 English) each list their **relevant articles**: the article(s) a correct answer rests on. 56 have one; 2 have more (e.g. `q26-ar`: Articles 968 and 969). How the set was built, and its limits: [docs/evaluation-dataset.md](../docs/evaluation-dataset.md).
 
 ## What each column means and how it is calculated
 
@@ -81,14 +135,14 @@ Chunking only changes *which* articles are retrieved: the model always receives 
 
 | Run | Chunks | Avg tokens per chunk | Longest chunk | Embedding time |
 |---|---|---|---|---|
-| article__Qwen3-Embedding-0.6B | 1149 | 259 | 1091 | 8.2 s |
-| per_language__Qwen3-Embedding-0.6B | 2242 | 183 | 649 | 10.2 s |
-| window-128o16__Qwen3-Embedding-0.6B | 9744 | 140 | 172 | 30.5 s |
-| window-256o32__Qwen3-Embedding-0.6B | 1842 | 215 | 259 | 9.8 s |
-| window-512o64__Qwen3-Embedding-0.6B | 1181 | 257 | 513 | 8.0 s |
-| article__bge-m3 | 1149 | 245 | 1071 | 3.5 s |
-| per_language__bge-m3 | 2242 | 172 | 625 | 5.3 s |
-| window-256o32__bge-m3 | 1740 | 208 | 258 | 4.7 s |
+| article__Qwen3-Embedding-0.6B | 1149 | 259 | 1091 | 9.0 s |
+| per_language__Qwen3-Embedding-0.6B | 2242 | 183 | 649 | 11.0 s |
+| window-128o16__Qwen3-Embedding-0.6B | 9744 | 140 | 172 | 33.1 s |
+| window-256o32__Qwen3-Embedding-0.6B | 1842 | 215 | 259 | 10.6 s |
+| window-512o64__Qwen3-Embedding-0.6B | 1181 | 257 | 513 | 8.9 s |
+| article__bge-m3 | 1149 | 245 | 1071 | 3.8 s |
+| per_language__bge-m3 | 2242 | 172 | 625 | 5.0 s |
+| window-256o32__bge-m3 | 1740 | 208 | 258 | 4.6 s |
 
 ### Retrieval metrics
 

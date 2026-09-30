@@ -143,7 +143,8 @@ When a stage lands, update its entry in [src/rag/ui/status.py](src/rag/ui/status
 [eval/questions.jsonl](eval/questions.jsonl) holds 62 questions: 28 topics from all four books, each asked in Arabic
 and in English, plus 2 that name an article by number and 4 out-of-scope questions. Each question lists the articles a
 correct answer rests on and a short reference answer. It is a **draft awaiting legal review** (checklist in
-[eval/README.md](eval/README.md)), so the scores below are provisional.
+[eval/README.md](eval/README.md)), so the scores below are provisional. How it was built and its limits:
+[docs/evaluation-dataset.md](docs/evaluation-dataset.md).
 
 ```bash
 python -m rag.experiments.chunking                 # retrieval metrics only, ~5 min for 8 configs (GPU)
@@ -185,6 +186,10 @@ First results (8 runs, 58 in-scope questions; one question = 0.017 of hit@1, so 
   for both), which matters for a future "no relevant article" threshold.
 - **Faithfulness is 0.87–0.92 everywhere**: once the right articles are in the context, the answer stays grounded;
   the differences are within noise.
+- **Cost is small for every run.** Production's embeddings are 4.5 MB of vectors (a 22.5 MB Chroma index), built in
+  about 9 s on the RTX 4070 Ti SUPER with the GPU ~80% busy and one 2.1 GB model copy. Per question, retrieval takes
+  ~15 ms to embed on the GPU (~56 ms on the CPU, as in Docker) plus ~10 ms of vector search. bge-m3 embeds about
+  twice as fast.
 - Production stays **article + Qwen3-Embedding-0.6B** until the question set is reviewed and larger.
 
 ## Tracing (Langfuse)

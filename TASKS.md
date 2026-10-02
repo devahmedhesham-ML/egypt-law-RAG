@@ -8,17 +8,36 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 - [ ] At least one GitHub commit per session (5 sessions)
 - [ ] Review another student's project, 300+ words covering setup, code, a strength, 2 improvements and an extension (R09)
 
-## Now: API, Docker, evaluation set, MLflow chunking experiments
+## Waiting on you
+- [ ] **Review the evaluation set** (`eval/README.md` checklist; start with q28, missed by every run); scores stay provisional until then
+- [ ] MLflow screenshot for R04: retake with the `chunk_size`, `overlap`, `embedding_model` columns (or the Compare view) and save it as `reports/mlflow_chunking_compare.png` (the current `reports/Screenshot 2026-09-29 204352.png` shows metrics only)
+- [ ] Arabic spot-check of 20 articles (Corpus view → Random 20)
+- [ ] Decide whether to promote a different chunking config / embedding model (after the eval review; today: keep article + Qwen3)
+- [ ] Peer review of another student's project (R09)
+- [ ] Check the Bedrock API key's expiry date in the AWS console (CI and reviewers will need a key that lasts)
+- [ ] Delete the unused IAM access keys from `.env` and deactivate them in AWS IAM
+
+## Next (recommended order)
+1. CI on GitHub Actions: lint → test → build/push the Docker image → faithfulness gate on 20 reviewed questions (R06)
+2. Register the chosen chunking config in the MLflow Model Registry (R04)
+3. BentoML async `/ask` with streaming, reusing `rag.pipeline` (R07)
+4. RAGAS: the other 3 metrics, results in MLflow per session; Grafana panel + faithfulness < 0.80 alert (R08)
+5. Locust at 50 users (p95), canary rollout documented (R07)
+6. Optimization: own AWQ-4bit build, re-ranker, RAGAS before/after (Module 4)
+7. Architecture diagram + session changelog (R10)
+
+## Done: API, Docker, evaluation set, MLflow chunking experiments
 - [x] vLLM moved to port 8001 so the API owns 8000
 - [x] `rag.pipeline`: one retrieve → answer → check-citations path shared by the API, evaluation and (next) BentoML
 - [x] `python -m rag.api`: `/ask` + `/health`, 422 on empty/blank/missing questions, 503 with the reason when the LLM or index is down
 - [x] Docker image (2.8 GB, CPU): corpus + Chroma index pulled from S3 at build, embedding model baked in, runs offline; verified from a fresh clone
 - [x] `eval/questions.jsonl`: 62 questions (28 topics × AR/EN, 2 by number, 4 out of scope), consistency-tested
-- [ ] **Review the evaluation set** (yours: `eval/README.md` checklist); scores stay provisional until then
 - [x] Chunking strategies `article` (default) / `window` (size, overlap) / `per_language`; retrieval maps chunks back to articles
 - [x] `python -m rag.experiments.chunking --faithfulness`: 8 MLflow runs (strategy × chunk_size/overlap × embedding model), retrieval metrics + RAGAS faithfulness judged by Bedrock
-- [ ] MLflow comparison screenshot → `reports/mlflow_chunking_compare.png` (yours)
-- [ ] Decide whether to promote a different chunking config / embedding model (after the eval review)
+- [x] Report explains every column, compares runs question by question, and adds embedding cost/speed/hardware (`reports/chunking_experiments.md`)
+- [x] `docs/evaluation-dataset.md`: how the evaluation set was built, checked, and its limits
+- [x] Chroma searches no longer modify the DVC-tracked index (read-only copy); MLflow experiment shown in the classic runs view
+- [x] 85 tests passing; API verified locally, in Docker and from a fresh clone; console verified against Bedrock and vLLM (:8001)
 
 ## Done: Langfuse tracing and follow-ups
 - [x] One `answer-question` trace per answer: retriever → embedding, generation (prompt, tokens, time to first token, reasoning), citation evaluator
@@ -41,7 +60,7 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 - [x] Console: full corpus in the Corpus view (warnings, Random 20, breadcrumbs), index status, context search
 - [x] `dvc.yaml` stages `build_corpus` + `index`, `dvc repro`, commit and push
 - [x] `dvc push` of the corpus and index
-- [ ] Replace the expired Bedrock API key in `.env` (yours: status shows 401 invalid_api_key)
+- [x] Replace the expired Bedrock API key in `.env`
 
 ## 1. Corpus (Step 0, pp. 64–65, 69)
 Plan: [docs/plans/corpus-build.md](docs/plans/corpus-build.md)
@@ -55,7 +74,7 @@ Plan: [docs/plans/corpus-build.md](docs/plans/corpus-build.md)
 - [x] Ingestion pipeline: JSON → chunk by article → embed → vector store (Chroma, 1,149 vectors)
 - [x] `dvc repro` re-indexes the corpus reproducibly from tracked documents (R05)
 - [x] Wire retrieval into the console: Ask/Compare search the index per question (top-k); Retrieval inspector view
-- [ ] Retrieval in the BentoML `/ask` endpoint (with the API)
+- [x] Retrieval in the production `/ask` (FastAPI, through `rag.pipeline`); the BentoML wrapper is in section 5
 - [ ] Batch re-indexing script tested with at least one new document
 
 ## 3. Code, API, Docker (Module 1 · R01–R03, p. 69)
@@ -69,7 +88,7 @@ Plan: [docs/plans/corpus-build.md](docs/plans/corpus-build.md)
 
 ## 4. Tracking, versioning, CI (Module 2 · R04–R06, p. 69)
 - [x] MLflow logs each config: `chunk_size`, `overlap`, `embedding_model`, `faithfulness` (R04)
-- [ ] 5+ runs compared (8 runs done, `reports/chunking_experiments.md`); MLflow screenshot in `/reports/` still needed (R04)
+- [ ] 5+ runs compared: 8 runs done (`reports/chunking_experiments.md`); the MLflow screenshot needs the config columns (see *Waiting on you*) (R04)
 - [ ] Best chunking config registered in the MLflow Registry (R04)
 - [ ] GitHub Actions: lint → test → rebuild index → push Docker image (R06)
 - [ ] CI fails if RAGAS faithfulness < 0.75 on a 20-question test set (R06)
@@ -87,8 +106,8 @@ Plan: [docs/plans/corpus-build.md](docs/plans/corpus-build.md)
 - [ ] RAGAS before vs after optimization
 
 ## 7. Monitoring and observability (Module 5 · R08, pp. 66, 69)
-- [ ] RAGAS on 50+ questions, all 4 metrics logged
-- [ ] RAGAS results stored in MLflow, with the trend visible across sessions
+- [ ] RAGAS on 50+ questions, all 4 metrics logged (faithfulness done on 58 questions for every chunking run; answer relevancy, context precision and recall to add)
+- [ ] RAGAS results stored in MLflow, with the trend visible across sessions (faithfulness is in the chunking runs; no per-session trend yet)
 - [ ] Grafana panel for RAGAS faithfulness; screenshot in README (R08)
 - [ ] Alert: faithfulness < 0.80 triggers a notification; threshold documented (R08)
 - [x] Langfuse tracing over the whole app: answers, searches, index and corpus builds, citation and tester scores (Langfuse Cloud)
@@ -98,7 +117,7 @@ Plan: [docs/plans/corpus-build.md](docs/plans/corpus-build.md)
 - [ ] Cosine embedding drift and token cost tracked
 
 ## 8. README and architecture (R10)
-- [ ] 3-command setup that the reviewer runs without asking anything
+- [ ] 3-command setup that the reviewer runs without asking anything (README quick start works from a fresh clone, but `/ask` needs an LLM key the reviewer does not have)
 - [ ] Architecture diagram covering all 5 sessions
 - [ ] Session changelog
 
@@ -107,6 +126,6 @@ Plan: [docs/plans/corpus-build.md](docs/plans/corpus-build.md)
 - [x] Public S3 DVC remote with anonymous pulls; lock files for the app, serve and quantize venvs
 
 ## Housekeeping (yours)
-- [ ] Delete the unused IAM access keys from `.env` and deactivate them in AWS IAM
 - [x] Commit this `TASKS.md`
-- [ ] Decide whether to commit `.claude/skills/langfuse` and `test.ipynb`
+- [ ] Decide whether to commit `.claude/skills/langfuse`, `.vscode/` and `test.ipynb`
+- [ ] Optional: free disk space (bge-m3 cache 4.3 GB in `~/.cache/huggingface`, `data/experiments/` 287 MB)

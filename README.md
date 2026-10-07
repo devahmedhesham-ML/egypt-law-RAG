@@ -256,7 +256,7 @@ leaves rotation automatically (`max_fails`).
    commit, the PR and `latest` on `main`
 5. **quality-gate**: `scripts/ci_gate.sh` → `python -m rag.evaluation.gate`: RAGAS faithfulness of the production system
    (Qwen2.5 on vLLM) on the 20 CI questions; **fails below 0.75**. It needs the GPU, so it runs on a self-hosted runner
-   labelled `gpu` (`scripts/setup_gpu_runner.sh`, then `~/actions-runner/run.sh`), only when the repository variable
+   labelled `gpu` (`scripts/setup_gpu_runner.sh`, then `~/actions-runner/run-gpu.sh`), only when the repository variable
    `GPU_RUNNER` is `true`, and never for pull requests from forks. Last result: [reports/faithfulness_gate.md](reports/faithfulness_gate.md).
 
 ## Index maintenance

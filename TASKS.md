@@ -11,7 +11,7 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 ## Waiting on you
 - [ ] **Free disk space on C:** (it filled up on 2026-10-07; Docker Desktop cannot start until it has room). See the report for options
 - [ ] After freeing space: run `docker compose up --build` once with the new `vllm` service, and the canary demo (`deploy/canary`)
-- [ ] Keep `~/actions-runner/run.sh` running when PRs should get the GPU quality gate (or `scripts/setup_gpu_runner.sh --remove`)
+- [ ] Keep `~/actions-runner/run-gpu.sh` running when PRs should get the GPU quality gate (or `scripts/setup_gpu_runner.sh --remove`)
 - [ ] Arabic spot-check of 20 articles (Corpus view → Random 20)
 - [ ] Peer review of another student's project (R09)
 - [ ] Delete the unused IAM access keys from `.env` and deactivate them in AWS IAM

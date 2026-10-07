@@ -9,8 +9,9 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 - [ ] Review another student's project, 300+ words covering setup, code, a strength, 2 improvements and an extension (R09)
 
 ## Waiting on you
-- [ ] **Free disk space on C:** (it filled up on 2026-10-07; Docker Desktop cannot start until it has room). See the report for options
-- [ ] After freeing space: run `docker compose up --build` once with the new `vllm` service, and the canary demo (`deploy/canary`)
+- [ ] **Repair Docker Desktop**: C: filled up on 2026-10-07 and Docker's data disk aborted its journal. Quit Docker Desktop → `wsl --shutdown` in PowerShell → start Docker Desktop (if it still fails: Troubleshoot → Clean / Purge data; our images rebuild from the repo)
+- [ ] **Free more space on C:** (≥ 15 GB) before the first `docker compose up` with the `vllm` service: its image is ~10 GB
+- [ ] Then run `docker compose up --build` once with the `vllm` service, and the canary demo (`deploy/canary`)
 - [ ] Keep `~/actions-runner/run-gpu.sh` running when PRs should get the GPU quality gate (or `scripts/setup_gpu_runner.sh --remove`)
 - [ ] Arabic spot-check of 20 articles (Corpus view → Random 20)
 - [ ] Peer review of another student's project (R09)
@@ -28,7 +29,7 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 - [x] Batch re-indexing (`rag.ingest.batch`) tested with a new document (`reports/batch_reindex.md`)
 - [x] Index fallback `rag.ingest.ensure`: local → dvc pull → build (used by CI)
 - [x] Canary rollout: nginx weighted split + `set_weights.sh`, documented in the README (`deploy/canary/`)
-- [x] CI workflow: lint → test → index → Docker build/push to GHCR → faithfulness gate on a self-hosted GPU runner
+- [x] CI workflow: lint → test → index → Docker build/push to GHCR → faithfulness gate on a self-hosted GPU runner; PR #1 green (gate 0.802 in CI, index pulled from DVC) and merged; image public at `ghcr.io/devahmedhesham-ml/egypt-law-rag-api`
 - [x] Quality gate passes locally: faithfulness 0.787 ≥ 0.75 on the 20 CI questions
 - [x] `docker-compose.yml` starts vLLM + API (config validated; not yet run here: disk full)
 

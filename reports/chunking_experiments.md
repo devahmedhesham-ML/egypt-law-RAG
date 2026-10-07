@@ -2,21 +2,21 @@
 
 Which way of cutting the Civil Code into chunks, and which embedding model, puts the right article in front of the model? Each row below is one configuration: the corpus is chunked and embedded its way, then every question goes through the same retrieval production uses, and the result is scored. Production today: **article__Qwen3-Embedding-0.6B**.
 
-> Generated 2026-09-30 by `python -m rag.experiments.chunking --faithfulness` (git bbc1385) from the latest MLflow run of each configuration (`mlflow.db`, experiment `chunking`; open it with `mlflow ui --backend-store-uri sqlite:///mlflow.db`).
-> **62 of 62 questions are drafts awaiting legal review** ([eval/README.md](../eval/README.md)), so every number here is provisional.
+> Generated 2026-10-07 by `python -m rag.experiments.chunking --faithfulness` (git afa1e3d) from the latest MLflow run of each configuration (`mlflow.db`, experiment `chunking`; open it with `mlflow ui --backend-store-uri sqlite:///mlflow.db`).
+> The 62 questions are the project's accepted evaluation set ([docs/evaluation-dataset.md](../docs/evaluation-dataset.md)); they have not been reviewed by a legal expert.
 
 ## Results
 
 | Run | Strategy | Chunk size / overlap | Embedding model | Chunks | hit_at_1 | recall_at_5 | mrr | ndcg_at_5 | hit_at_1_ar | hit_at_1_en | ar_en_top1_agreement | faithfulness | faithfulness_judged |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| article__Qwen3-Embedding-0.6B | article | whole article | Qwen3-Embedding-0.6B | 1149 | 0.741 | **0.931** | 0.819 | 0.844 | 0.724 | **0.759** | 0.607 | 0.914 | 58/58 |
-| per_language__Qwen3-Embedding-0.6B | per_language | whole article | Qwen3-Embedding-0.6B | 2242 | 0.655 | 0.879 | 0.759 | 0.781 | 0.621 | 0.690 | 0.357 | 0.876 | 58/58 |
-| window-128o16__Qwen3-Embedding-0.6B | window | 128 / 16 | Qwen3-Embedding-0.6B | 9744 | 0.414 | 0.638 | 0.518 | 0.541 | 0.414 | 0.414 | 0.357 | 0.875 | 58/58 |
-| window-256o32__Qwen3-Embedding-0.6B | window | 256 / 32 | Qwen3-Embedding-0.6B | 1842 | 0.724 | 0.897 | 0.805 | 0.823 | 0.724 | 0.724 | 0.571 | 0.879 | 58/58 |
-| window-512o64__Qwen3-Embedding-0.6B | window | 512 / 64 | Qwen3-Embedding-0.6B | 1181 | 0.724 | **0.931** | 0.808 | 0.836 | 0.724 | 0.724 | 0.571 | **0.924** | 58/58 |
-| article__bge-m3 | article | whole article | bge-m3 | 1149 | **0.759** | **0.931** | **0.835** | **0.854** | **0.759** | **0.759** | **0.714** | 0.881 | 58/58 |
-| per_language__bge-m3 | per_language | whole article | bge-m3 | 2242 | 0.741 | 0.914 | 0.816 | 0.832 | **0.759** | 0.724 | 0.571 | 0.866 | 58/58 |
-| window-256o32__bge-m3 | window | 256 / 32 | bge-m3 | 1740 | 0.672 | 0.897 | 0.772 | 0.797 | 0.621 | 0.724 | 0.679 | 0.873 | 58/58 |
+| article__Qwen3-Embedding-0.6B | article | whole article | Qwen3-Embedding-0.6B | 1149 | 0.741 | **0.931** | 0.819 | 0.844 | 0.724 | **0.759** | 0.607 | 0.813 | 57/58 |
+| per_language__Qwen3-Embedding-0.6B | per_language | whole article | Qwen3-Embedding-0.6B | 2242 | 0.655 | 0.897 | 0.767 | 0.792 | 0.621 | 0.690 | 0.357 | 0.813 | 58/58 |
+| window-128o16__Qwen3-Embedding-0.6B | window | 128 / 16 | Qwen3-Embedding-0.6B | 9744 | 0.466 | 0.690 | 0.567 | 0.592 | 0.448 | 0.483 | 0.393 | 0.741 | 57/58 |
+| window-256o32__Qwen3-Embedding-0.6B | window | 256 / 32 | Qwen3-Embedding-0.6B | 1842 | 0.724 | 0.897 | 0.805 | 0.823 | 0.724 | 0.724 | 0.571 | 0.823 | 58/58 |
+| window-512o64__Qwen3-Embedding-0.6B | window | 512 / 64 | Qwen3-Embedding-0.6B | 1181 | 0.724 | **0.931** | 0.808 | 0.836 | 0.724 | 0.724 | 0.571 | 0.813 | 57/58 |
+| article__bge-m3 | article | whole article | bge-m3 | 1149 | **0.759** | **0.931** | **0.835** | **0.854** | **0.759** | **0.759** | **0.714** | 0.806 | 58/58 |
+| per_language__bge-m3 | per_language | whole article | bge-m3 | 2242 | 0.741 | 0.914 | 0.816 | 0.832 | **0.759** | 0.724 | 0.571 | **0.843** | 58/58 |
+| window-256o32__bge-m3 | window | 256 / 32 | bge-m3 | 1740 | 0.690 | 0.914 | 0.789 | 0.815 | 0.655 | 0.724 | **0.714** | 0.830 | 57/58 |
 
 Best value per column in bold. Every metric is an average over the **58 in-scope questions** (the out-of-scope ones have no right article to find), so **one question moves a metric by 0.017**: a gap of one or two questions between two runs is not a real difference. The sections below explain each column, then show the same results question by question.
 
@@ -27,13 +27,13 @@ The 58 in-scope questions counted by where the run ranked the first relevant art
 | Run | 1st | 2nd–5th | 6th–10th | not in top 10 | right article reaches the model (top 5) |
 |---|---|---|---|---|---|
 | article__Qwen3-Embedding-0.6B | 43 | 11 | 1 | 3 | 54 of 58 |
-| per_language__Qwen3-Embedding-0.6B | 38 | 13 | 4 | 3 | 51 of 58 |
-| window-128o16__Qwen3-Embedding-0.6B | 24 | 13 | 4 | 17 | 37 of 58 |
+| per_language__Qwen3-Embedding-0.6B | 38 | 14 | 4 | 2 | 52 of 58 |
+| window-128o16__Qwen3-Embedding-0.6B | 27 | 13 | 3 | 15 | 40 of 58 |
 | window-256o32__Qwen3-Embedding-0.6B | 42 | 10 | 2 | 4 | 52 of 58 |
 | window-512o64__Qwen3-Embedding-0.6B | 42 | 12 | 1 | 3 | 54 of 58 |
 | article__bge-m3 | 44 | 10 | 1 | 3 | 54 of 58 |
 | per_language__bge-m3 | 43 | 10 | 3 | 2 | 53 of 58 |
-| window-256o32__bge-m3 | 39 | 13 | 2 | 4 | 52 of 58 |
+| window-256o32__bge-m3 | 40 | 13 | 2 | 3 | 53 of 58 |
 
 ## Compared with article__Qwen3-Embedding-0.6B, question by question
 
@@ -41,19 +41,19 @@ Averages can hide trade-offs, so each run is compared with the baseline on the s
 
 | Run | hit@1 won | hit@1 lost | top-5 won | top-5 lost | faithfulness vs baseline |
 |---|---|---|---|---|---|
-| per_language__Qwen3-Embedding-0.6B | 3 | 8 | 1 | 4 | -0.038 |
-| window-128o16__Qwen3-Embedding-0.6B | 1 | 20 | 0 | 17 | -0.039 |
-| window-256o32__Qwen3-Embedding-0.6B | 3 | 4 | 1 | 3 | -0.035 |
-| window-512o64__Qwen3-Embedding-0.6B | 0 | 1 | 0 | 0 | +0.010 |
-| article__bge-m3 | 10 | 9 | 2 | 2 | -0.033 |
-| per_language__bge-m3 | 9 | 9 | 2 | 3 | -0.048 |
-| window-256o32__bge-m3 | 9 | 13 | 1 | 3 | -0.041 |
+| per_language__Qwen3-Embedding-0.6B | 3 | 8 | 1 | 3 | +0.000 |
+| window-128o16__Qwen3-Embedding-0.6B | 1 | 17 | 0 | 14 | -0.072 |
+| window-256o32__Qwen3-Embedding-0.6B | 3 | 4 | 1 | 3 | +0.009 |
+| window-512o64__Qwen3-Embedding-0.6B | 0 | 1 | 0 | 0 | +0.000 |
+| article__bge-m3 | 10 | 9 | 2 | 2 | -0.007 |
+| per_language__bge-m3 | 9 | 9 | 2 | 3 | +0.030 |
+| window-256o32__bge-m3 | 9 | 12 | 1 | 2 | +0.017 |
 
 Read the two columns together: the net (won − lost) is what moves the average, but large won *and* lost counts with a small net mean the two runs get *different* questions right, which a single average does not show.
 
 ## Embedding cost and speed
 
-Measured on an **NVIDIA GeForce RTX 4070 Ti SUPER** (16.0 GB VRAM, driver 591.86, CUDA 13.0, torch 2.14.0+cu130) and an **AMD Ryzen 7 9700X 8-Core Processor** (16 threads, 15.2 GB RAM visible to the OS), Linux-6.6.87.2-microsoft-standard-WSL2, on 2026-09-30. Under WSL the GPU is shared with the Windows desktop, so the idle load before each run is shown next to the numbers.
+Measured on an **NVIDIA GeForce RTX 4070 Ti SUPER** (16.0 GB VRAM, driver 591.86, CUDA 13.0, torch 2.14.0+cu130) and an **AMD Ryzen 7 9700X 8-Core Processor** (16 threads, 15.2 GB RAM visible to the OS), Linux-6.6.87.2-microsoft-standard-WSL2, on 2026-10-07. Under WSL the GPU is shared with the Windows desktop, so the idle load before each run is shown next to the numbers.
 
 ### Size of the embeddings
 
@@ -63,8 +63,8 @@ Measured on an **NVIDIA GeForce RTX 4070 Ti SUPER** (16.0 GB VRAM, driver 591.86
 | per_language__Qwen3-Embedding-0.6B | 2,242 | 1024 | 8.8 MB | 31.3 MB |
 | window-128o16__Qwen3-Embedding-0.6B | 9,744 | 1024 | 38.1 MB | 101.5 MB |
 | window-256o32__Qwen3-Embedding-0.6B | 1,842 | 1024 | 7.2 MB | 28.5 MB |
-| window-512o64__Qwen3-Embedding-0.6B | 1,181 | 1024 | 4.6 MB | 22.7 MB |
-| article__bge-m3 | 1,149 | 1024 | 4.5 MB | 22.5 MB |
+| window-512o64__Qwen3-Embedding-0.6B | 1,181 | 1024 | 4.6 MB | 22.6 MB |
+| article__bge-m3 | 1,149 | 1024 | 4.5 MB | 22.6 MB |
 | per_language__bge-m3 | 2,242 | 1024 | 8.8 MB | 31.3 MB |
 | window-256o32__bge-m3 | 1,740 | 1024 | 6.8 MB | 26.6 MB |
 
@@ -72,27 +72,27 @@ Measured on an **NVIDIA GeForce RTX 4070 Ti SUPER** (16.0 GB VRAM, driver 591.86
 
 | Run | Embedding time | Chunks/s | Tokens/s | Per chunk (batched) | GPU busy, mean / max | Idle before: busy / VRAM | VRAM of the model copy | GPU memory peak (whole device) |
 |---|---|---|---|---|---|---|---|---|
-| article__Qwen3-Embedding-0.6B | 9.0 s | 128 | 33,226 | 7.8 ms | 80% / 93% | 15% / 2.64 GB | 2.09 GB | 4.71 GB of 15.99 GB |
-| per_language__Qwen3-Embedding-0.6B | 11.0 s | 203 | 37,112 | 4.9 ms | 85% / 93% | 15% / 2.63 GB | 2.12 GB | 4.56 GB of 15.99 GB |
-| window-128o16__Qwen3-Embedding-0.6B | 33.1 s | 294 | 41,148 | 3.4 ms | 89% / 95% | 5% / 2.56 GB | 2.22 GB | 4.59 GB of 15.99 GB |
-| window-256o32__Qwen3-Embedding-0.6B | 10.6 s | 174 | 37,412 | 5.8 ms | 84% / 92% | 5% / 2.57 GB | 2.19 GB | 4.58 GB of 15.99 GB |
-| window-512o64__Qwen3-Embedding-0.6B | 8.9 s | 132 | 34,007 | 7.6 ms | 81% / 94% | 14% / 2.58 GB | 2.16 GB | 4.72 GB of 15.99 GB |
-| article__bge-m3 | 3.8 s | 305 | 74,819 | 3.3 ms | 63% / 82% | 5% / 2.57 GB | 2.08 GB | 4.00 GB of 15.99 GB |
-| per_language__bge-m3 | 5.0 s | 446 | 76,591 | 2.2 ms | 64% / 82% | 15% / 2.23 GB | 2.08 GB | 3.77 GB of 15.99 GB |
-| window-256o32__bge-m3 | 4.6 s | 377 | 78,484 | 2.6 ms | 67% / 83% | 14% / 2.24 GB | 2.08 GB | 3.71 GB of 15.99 GB |
+| article__Qwen3-Embedding-0.6B | 8.7 s | 133 | 34,455 | 7.5 ms | 80% / 92% | 12% / 2.60 GB | 2.16 GB | 4.71 GB of 15.99 GB |
+| per_language__Qwen3-Embedding-0.6B | 10.7 s | 209 | 38,184 | 4.8 ms | 85% / 92% | 13% / 2.60 GB | 2.19 GB | 4.61 GB of 15.99 GB |
+| window-128o16__Qwen3-Embedding-0.6B | 31.5 s | 309 | 43,276 | 3.2 ms | 88% / 92% | 15% / 2.61 GB | 2.15 GB | 4.59 GB of 15.99 GB |
+| window-256o32__Qwen3-Embedding-0.6B | 10.6 s | 174 | 37,518 | 5.7 ms | 82% / 93% | 4% / 4.00 GB | 2.19 GB | 7.39 GB of 15.99 GB |
+| window-512o64__Qwen3-Embedding-0.6B | 8.4 s | 140 | 36,024 | 7.1 ms | 83% / 95% | 22% / 2.59 GB | 2.18 GB | 4.74 GB of 15.99 GB |
+| article__bge-m3 | 3.7 s | 312 | 76,649 | 3.2 ms | 63% / 83% | 4% / 5.12 GB | 2.08 GB | 4.15 GB of 15.99 GB |
+| per_language__bge-m3 | 4.5 s | 493 | 84,671 | 2.0 ms | 65% / 82% | 0% / 3.99 GB | 3.13 GB | 5.49 GB of 15.99 GB |
+| window-256o32__bge-m3 | 4.2 s | 418 | 86,974 | 2.4 ms | 66% / 85% | 0% / 2.57 GB | 2.08 GB | 4.04 GB of 15.99 GB |
 
 ### Answering a question: retrieval latency
 
 | Run | Embed the question, GPU (p50 / p95) | Embed the question, CPU (p50 / p95) | Vector search (p50 / p95) | Model VRAM when answering |
 |---|---|---|---|---|
-| article__Qwen3-Embedding-0.6B | 15.0 / 19.1 ms | 56.2 / 67.3 ms | 10.2 / 11.4 ms | 1.13 GB |
-| per_language__Qwen3-Embedding-0.6B | 15.0 / 18.3 ms | 55.4 / 68.4 ms | 12.5 / 14.0 ms | 1.13 GB |
-| window-128o16__Qwen3-Embedding-0.6B | 14.8 / 18.6 ms | 55.9 / 71.3 ms | 12.7 / 14.6 ms | 1.13 GB |
-| window-256o32__Qwen3-Embedding-0.6B | 15.7 / 21.1 ms | 56.3 / 74.0 ms | 13.2 / 15.4 ms | 1.13 GB |
-| window-512o64__Qwen3-Embedding-0.6B | 15.4 / 18.6 ms | 55.1 / 71.5 ms | 12.7 / 13.9 ms | 1.13 GB |
-| article__bge-m3 | 5.9 / 7.1 ms | 69.3 / 88.2 ms | 10.1 / 10.9 ms | 1.07 GB |
-| per_language__bge-m3 | 5.8 / 6.9 ms | 70.0 / 89.3 ms | 12.5 / 13.3 ms | 1.07 GB |
-| window-256o32__bge-m3 | 6.0 / 9.6 ms | 75.3 / 100.3 ms | 14.0 / 15.5 ms | 1.07 GB |
+| article__Qwen3-Embedding-0.6B | 14.9 / 17.9 ms | 52.6 / 69.3 ms | 10.1 / 11.3 ms | 1.13 GB |
+| per_language__Qwen3-Embedding-0.6B | 15.5 / 20.1 ms | 51.0 / 67.1 ms | 11.7 / 12.8 ms | 1.13 GB |
+| window-128o16__Qwen3-Embedding-0.6B | 14.5 / 19.2 ms | 54.1 / 66.8 ms | 12.4 / 14.9 ms | 1.13 GB |
+| window-256o32__Qwen3-Embedding-0.6B | 16.1 / 18.4 ms | 54.9 / 68.2 ms | 12.0 / 13.4 ms | 1.13 GB |
+| window-512o64__Qwen3-Embedding-0.6B | 14.7 / 17.7 ms | 54.2 / 63.3 ms | 12.3 / 13.6 ms | 1.13 GB |
+| article__bge-m3 | 6.0 / 7.7 ms | 64.1 / 84.3 ms | 9.9 / 10.9 ms | 1.07 GB |
+| per_language__bge-m3 | 5.7 / 6.7 ms | 61.6 / 80.7 ms | 11.4 / 12.2 ms | 1.07 GB |
+| window-256o32__bge-m3 | 5.6 / 6.7 ms | 61.4 / 81.3 ms | 12.4 / 14.0 ms | 1.07 GB |
 
 How each number is measured:
 
@@ -111,7 +111,7 @@ How each number is measured:
 2. **Embed** every chunk with the run's embedding model on the GPU and write a throwaway Chroma index (`data/experiments/`; the production index is never touched).
 3. **Retrieve** for every question exactly as production does: embed the question (with the model's query prompt, if it has one), fetch the nearest chunks, keep each article's best-scoring chunk, and put any article the question names by number ("What does Article 505 say?") first. The result is a ranked list of up to 10 different articles.
 4. **Score retrieval** by comparing that list with the question's relevant articles (the retrieval metrics).
-5. **Answer and judge**: the top 5 articles, always as whole articles whatever the chunking, go to Bedrock `gpt-oss-120b` with the production prompt; RAGAS then judges how faithful the answer is to those articles (the same model acts as judge).
+5. **Answer and judge**: the top 5 articles, always as whole articles whatever the chunking, go to `Qwen/Qwen2.5-7B-Instruct-AWQ` with the production prompt; RAGAS then judges how faithful the answer is to those articles (the same model acts as judge).
 6. **Log** the configuration, the metrics and a `per_question.json` (every question's ranking, answer and score) as one MLflow run.
 
 Chunking only changes *which* articles are retrieved: the model always receives whole articles.
@@ -135,14 +135,14 @@ Chunking only changes *which* articles are retrieved: the model always receives 
 
 | Run | Chunks | Avg tokens per chunk | Longest chunk | Embedding time |
 |---|---|---|---|---|
-| article__Qwen3-Embedding-0.6B | 1149 | 259 | 1091 | 9.0 s |
-| per_language__Qwen3-Embedding-0.6B | 2242 | 183 | 649 | 11.0 s |
-| window-128o16__Qwen3-Embedding-0.6B | 9744 | 140 | 172 | 33.1 s |
+| article__Qwen3-Embedding-0.6B | 1149 | 259 | 1091 | 8.7 s |
+| per_language__Qwen3-Embedding-0.6B | 2242 | 183 | 649 | 10.7 s |
+| window-128o16__Qwen3-Embedding-0.6B | 9744 | 140 | 172 | 31.5 s |
 | window-256o32__Qwen3-Embedding-0.6B | 1842 | 215 | 259 | 10.6 s |
-| window-512o64__Qwen3-Embedding-0.6B | 1181 | 257 | 513 | 8.9 s |
-| article__bge-m3 | 1149 | 245 | 1071 | 3.8 s |
-| per_language__bge-m3 | 2242 | 172 | 625 | 5.0 s |
-| window-256o32__bge-m3 | 1740 | 208 | 258 | 4.6 s |
+| window-512o64__Qwen3-Embedding-0.6B | 1181 | 257 | 513 | 8.4 s |
+| article__bge-m3 | 1149 | 245 | 1071 | 3.7 s |
+| per_language__bge-m3 | 2242 | 172 | 625 | 4.5 s |
+| window-256o32__bge-m3 | 1740 | 208 | 258 | 4.2 s |
 
 ### Retrieval metrics
 
@@ -159,14 +159,14 @@ Each is computed per question from its ranked list, then averaged over the 58 in
 
 ### Answer metric: faithfulness (RAGAS)
 
-For each in-scope question, Bedrock `gpt-oss-120b` answers from the run's top 5 articles, and RAGAS scores the answer in two LLM steps (the judge is the same Bedrock model):
+For each in-scope question, `Qwen/Qwen2.5-7B-Instruct-AWQ` (the production model) answers from the run's top 5 articles, and RAGAS scores the answer in two LLM steps with `Qwen/Qwen2.5-7B-Instruct-AWQ` as the judge:
 
 1. **Split** the answer into short standalone statements ("a gift of future property is void").
 2. **Check** each statement against the 5 articles: supported or not.
 
 `faithfulness` for one answer = supported statements ÷ all statements, so an answer with 4 statements of which 3 are supported scores 0.75. The column is the average over all judged answers. It measures **grounding, not correctness**: an answer that faithfully repeats the wrong article still scores high, which is why it is read together with the retrieval metrics.
 
-`faithfulness_judged` = how many of the 58 answers received a score. An answer is left out when Bedrock fails after retries, the judge errors, or the answer yields no statements.
+`faithfulness_judged` = how many of the 58 answers received a score. An answer is left out when the model fails after retries, the judge errors, or the answer yields no statements.
 
 ## Worked example
 
@@ -187,12 +187,12 @@ MLflow also logs the cosine similarity of the best match. For a future "no relev
 |---|---|---|---|
 | article__Qwen3-Embedding-0.6B | 0.658 | 0.418 | 0.240 |
 | per_language__Qwen3-Embedding-0.6B | 0.665 | 0.411 | 0.254 |
-| window-128o16__Qwen3-Embedding-0.6B | 0.650 | 0.423 | 0.227 |
+| window-128o16__Qwen3-Embedding-0.6B | 0.653 | 0.426 | 0.227 |
 | window-256o32__Qwen3-Embedding-0.6B | 0.663 | 0.416 | 0.247 |
 | window-512o64__Qwen3-Embedding-0.6B | 0.659 | 0.418 | 0.241 |
 | article__bge-m3 | 0.653 | 0.488 | 0.165 |
 | per_language__bge-m3 | 0.650 | 0.480 | 0.170 |
-| window-256o32__bge-m3 | 0.649 | 0.482 | 0.167 |
+| window-256o32__bge-m3 | 0.651 | 0.482 | 0.169 |
 
 Also in MLflow, per run: `hit_at_5` and an `_ar` / `_en` version of every retrieval metric, `faithfulness_ar` / `faithfulness_en`, `chunks_truncated` (chunks longer than the model reads; 0 in every run), and timings.
 
@@ -209,9 +209,9 @@ The relevant article is not in its top 5, so the model never sees it. Worth chec
 
 ## Caveats
 
-- **Draft questions.** The relevant articles and reference answers have not been reviewed by a legal reader yet.
+- **Not legally reviewed.** The questions were accepted as the evaluation set by the project owner; their relevant articles and reference answers have not been checked by a legal expert.
 - **Small sample.** 58 questions: differences of one or two questions (0.017–0.034) are noise.
 - **Articles named by number** are found by the number lookup, not the embedding, so every run gets those questions right.
-- **Self-judging.** The same model answers and judges faithfulness, which can be lenient with its own phrasing; faithfulness is best read as a comparison between runs, not as an absolute score.
+- **Self-judging.** `Qwen/Qwen2.5-7B-Instruct-AWQ` both answers and judges faithfulness, which can be lenient with its own phrasing, and a 7B judge is less reliable than a larger one; read faithfulness as a comparison between runs, not as an absolute score.
 
 MLflow comparison view (screenshot): [mlflow_chunking_compare.png](mlflow_chunking_compare.png).

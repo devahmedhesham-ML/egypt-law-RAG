@@ -3,8 +3,9 @@
 For each config in params.yaml `experiments.chunking` (strategy, chunk_size, overlap, embedding model):
 chunk the corpus → embed on the GPU → a throwaway Chroma index → retrieve for every question in
 eval/questions.jsonl the way production does (articles named in the question first, then the best
-chunk per article) → retrieval metrics → one MLflow run. With --faithfulness, Bedrock also answers
-each in-scope question from its top-k articles and RAGAS judges how faithful the answer is to them.
+chunk per article) → retrieval metrics → one MLflow run. With --faithfulness, the production model (Qwen2.5 on
+vLLM) also answers each in-scope question from its top-k articles and RAGAS judges how faithful the answer is
+to them (judge: Qwen2.5 by default, Bedrock optional).
 
 View: mlflow ui --backend-store-uri sqlite:///mlflow.db  →  experiment "chunking", compare runs.
 """
@@ -12,7 +13,6 @@ View: mlflow ui --backend-store-uri sqlite:///mlflow.db  →  experiment "chunki
 from __future__ import annotations
 
 import argparse
-import asyncio
 import hashlib
 import json
 import math
@@ -27,10 +27,11 @@ import yaml
 from rich.console import Console
 from rich.table import Table
 
+from rag.evaluation.faithfulness import FaithfulnessScorer, summarize
+from rag.experiments.report import EXPERIMENT, build_report, latest_runs, production_config, run_name
 from rag.ingest.chunks import build_chunks, chunks_per_article, query_text
 from rag.ingest.embed import GpuEmbedder
 from rag.ingest.store import best_per_article, collection_name, search, write_index
-from rag.experiments.report import EXPERIMENT, build_report, latest_runs, production_config, run_name
 from rag.retrieval import merge_hits, numbers_in_question
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -80,79 +81,6 @@ def aggregate(rows: list[dict], k: int) -> dict[str, float]:
     return out
 
 
-# --- faithfulness (optional) -------------------------------------------------------------------
-class Faithfulness:
-    """Bedrock answers from the retrieved articles; RAGAS (judge: the same Bedrock model) scores faithfulness."""
-
-    def __init__(self, articles: dict[int, dict], concurrency: int = 8) -> None:
-        from rag.llm import get_backend
-        from rag.llm.factory import load_llm_params
-
-        self.params = load_llm_params()
-        self.backend = get_backend(self.params, backend="bedrock")
-        self.judge_model = self.params["bedrock"]["model"]
-        self.articles = articles
-        self.concurrency = concurrency
-        self.cache: dict[tuple, tuple[str, float]] = {}
-
-    def _metric(self):
-        """RAGAS faithfulness judged by Bedrock. Instructor's TOOLS mode: RAGAS defaults to JSON mode, in which
-        gpt-oss returns malformed JSON. Built per batch, so the async client never outlives its event loop."""
-        import instructor
-        from openai import AsyncOpenAI
-        from ragas.llms.base import InstructorLLM
-        from ragas.metrics.collections import Faithfulness as RagasFaithfulness
-
-        client = AsyncOpenAI(api_key=os.environ["Bedrock_API_key"],
-                             base_url=os.environ.get("OPENAI_BASE_URL", self.params["bedrock"]["base_url"]))
-        llm = InstructorLLM(client=instructor.from_openai(client, mode=instructor.Mode.TOOLS), model=self.judge_model,
-                            provider="openai", max_tokens=4096)
-        return RagasFaithfulness(llm=llm)
-
-    def _context(self, numbers: list[int]) -> list[str]:
-        out = []
-        for n in numbers:
-            a = self.articles[n]
-            body = "\n".join(x for x in (a.get("text_ar") or a.get("repeal_note_ar"),
-                                         a.get("text_en") or a.get("repeal_note")) if x)
-            out.append(f"[Article {n}]\n{body}")
-        return out
-
-    async def _one(self, metric, sem: asyncio.Semaphore, question: str, numbers: list[int]) -> tuple[str, float]:
-        from rag.llm import answer
-
-        from rag.llm import LLMError
-
-        key = (question, tuple(numbers))
-        if key not in self.cache:  # same question + same articles → same answer: judge it once
-            async with sem:
-                context = [self.articles[n] for n in numbers]
-                text, score = "", float("nan")
-                for attempt in range(3):  # the client already retries twice; this covers longer network blips
-                    try:
-                        result = await asyncio.to_thread(answer, self.backend, question, context,
-                                                         max_tokens=self.params["max_tokens"], temperature=0.0)
-                        text = result.text
-                        break
-                    except LLMError as e:
-                        print(f"  answer failed (attempt {attempt + 1}/3) on {question[:40]!r}: {e}"[:300])
-                        await asyncio.sleep(5 * (attempt + 1))
-                if text.strip():
-                    try:
-                        score = (await metric.ascore(user_input=question, response=text,
-                                                     retrieved_contexts=self._context(numbers))).value
-                    except Exception as e:  # noqa: BLE001 - one failed judgement must not sink the run
-                        print(f"  faithfulness failed on {question[:40]!r}: {type(e).__name__}: {e}"[:300])
-                self.cache[key] = (text, score)
-        return self.cache[key]
-
-    def score(self, items: list[tuple[str, list[int]]]) -> list[tuple[str, float]]:
-        async def run():
-            metric, sem = self._metric(), asyncio.Semaphore(self.concurrency)
-            return await asyncio.gather(*(self._one(metric, sem, q, nums) for q, nums in items))
-        return asyncio.run(run())
-
-
 # --- one config -------------------------------------------------------------------------------
 def embed_and_index(cfg: dict, records: list[dict], questions: list[dict], exp: dict, ingest: dict, *,
                     console: Console) -> dict:
@@ -199,8 +127,16 @@ def embed_and_index(cfg: dict, records: list[dict], questions: list[dict], exp: 
             "fanout": fanout, "device": stats.device, "measured": measured}
 
 
+def add_faithfulness(rows: list[dict], faith: FaithfulnessScorer, k: int) -> dict[str, float]:
+    """Answer and judge every in-scope row from its top-k ranked articles; fills row answer/faithfulness."""
+    scoped = [r for r in rows if r["relevant_articles"]]
+    for r, judged in zip(scoped, faith.score([(r["question"], r["ranked"][:k]) for r in scoped])):
+        r["answer"], r["faithfulness"] = judged.answer, judged.score
+    return summarize(scoped)
+
+
 def run_config(cfg: dict, records: list[dict], questions: list[dict], exp: dict, ingest: dict, *,
-               faith: Faithfulness | None, console: Console) -> tuple[dict, list[dict], dict]:
+               faith: FaithfulnessScorer | None, console: Console) -> tuple[dict, list[dict], dict]:
     k = exp["top_k"]
     built = embed_and_index(cfg, records, questions, exp, ingest, console=console)
     index_dir, name, fanout = built["index_dir"], built["name"], built["fanout"]
@@ -215,18 +151,7 @@ def run_config(cfg: dict, records: list[dict], questions: list[dict], exp: dict,
         rows.append(row)
     metrics = aggregate(rows, k)
     if faith is not None:
-        scoped = [r for r in rows if r["relevant_articles"]]
-        results = faith.score([(r["question"], r["ranked"][:k]) for r in scoped])
-        for r, (text, score) in zip(scoped, results):
-            r["answer"], r["faithfulness"] = text, score
-        vals = [s for _, s in results if not math.isnan(s)]
-        if vals:
-            metrics["faithfulness"] = statistics.fmean(vals)
-            for lang in ("ar", "en"):
-                lv = [r["faithfulness"] for r in scoped if r["lang"] == lang and not math.isnan(r["faithfulness"])]
-                if lv:
-                    metrics[f"faithfulness_{lang}"] = statistics.fmean(lv)
-        metrics["faithfulness_judged"] = len(vals)
+        metrics.update(add_faithfulness(rows, faith, k))
     return metrics, rows, {**built["measured"], "device": built["device"]}
 
 
@@ -239,18 +164,41 @@ def measure_existing(mlflow, cfg: dict, records: list[dict], questions: list[dic
     """
     from rag.experiments import perf
 
+    run = latest_run(mlflow, cfg)
+    if run is None:
+        console.print(f"[yellow]! no finished run for {run_name(cfg)}: run it first[/]")
+        return False
+    built = embed_and_index(cfg, records, questions, exp, ingest, console=console)
+    with mlflow.start_run(run_id=run.info.run_id):
+        mlflow.log_metrics({k: float(v) for k, v in built["measured"].items()})
+        mlflow.set_tags({**perf.hardware_info(), "perf_measured_at": time.strftime("%Y-%m-%d"),
+                         "perf_git_sha": git_sha()})
+    return True
+
+
+def latest_run(mlflow, cfg: dict):
     exp_id = mlflow.get_experiment_by_name(EXPERIMENT).experiment_id
     runs = mlflow.search_runs([exp_id], filter_string=f"attributes.run_name = '{run_name(cfg)}' and "
                               "attributes.status = 'FINISHED'", order_by=["attributes.start_time DESC"],
                               max_results=1, output_format="list")
-    if not runs:
+    return runs[0] if runs else None
+
+
+def faithfulness_existing(mlflow, cfg: dict, faith: FaithfulnessScorer, k: int, *, console: Console) -> bool:
+    """--faithfulness-only: answer + judge from the rankings stored in a config's latest run, and log the scores
+    into that run. Retrieval is not redone: the answers depend only on which articles were retrieved."""
+    run = latest_run(mlflow, cfg)
+    if run is None:
         console.print(f"[yellow]! no finished run for {run_name(cfg)}: run it first[/]")
         return False
-    built = embed_and_index(cfg, records, questions, exp, ingest, console=console)
-    with mlflow.start_run(run_id=runs[0].info.run_id):
-        mlflow.log_metrics({k: float(v) for k, v in built["measured"].items()})
-        mlflow.set_tags({**perf.hardware_info(), "perf_measured_at": time.strftime("%Y-%m-%d"),
-                         "perf_git_sha": git_sha()})
+    data = mlflow.artifacts.load_dict(f"runs:/{run.info.run_id}/per_question.json")
+    metrics = add_faithfulness(data["questions"], faith, k)
+    with mlflow.start_run(run_id=run.info.run_id):
+        mlflow.log_metrics(metrics)
+        mlflow.set_tags({"answer_model": faith.answer_model, "judge_model": faith.judge_model,
+                         "faithfulness_measured_at": time.strftime("%Y-%m-%d")})
+        mlflow.log_dict(data, "per_question.json")
+    console.print({key: round(v, 3) for key, v in metrics.items()})
     return True
 
 
@@ -264,11 +212,15 @@ def git_sha() -> str:
 
 def main(argv: list[str] | None = None) -> int:
     params = yaml.safe_load((REPO_ROOT / "params.yaml").read_text(encoding="utf-8"))
-    exp, ingest, corpus = params["experiments"], params["ingest"], params["corpus"]
+    exp, ingest, corpus, ev = params["experiments"], params["ingest"], params["corpus"], params["evaluation"]
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--only", type=int, nargs="*", help="run only these config indexes (0-based)")
-    ap.add_argument("--faithfulness", action="store_true", help="also answer with Bedrock and score with RAGAS")
-    ap.add_argument("--concurrency", type=int, default=8, help="parallel Bedrock requests for --faithfulness")
+    ap.add_argument("--faithfulness", action="store_true", help="also answer and score RAGAS faithfulness")
+    ap.add_argument("--faithfulness-only", action="store_true",
+                    help="answer + judge from the rankings in each config's latest run (no re-embedding)")
+    ap.add_argument("--answer-backend", default=ev["answer_backend"], choices=["vllm", "bedrock"])
+    ap.add_argument("--judge-backend", default=ev["judge_backend"], choices=["vllm", "bedrock"])
+    ap.add_argument("--concurrency", type=int, default=ev["concurrency"], help="parallel answer/judge requests")
     ap.add_argument("--report", default="reports/chunking_experiments.md")
     ap.add_argument("--report-only", action="store_true", help="rebuild the report from MLflow without running anything")
     ap.add_argument("--perf-only", action="store_true",
@@ -287,10 +239,12 @@ def main(argv: list[str] | None = None) -> int:
     questions_path = REPO_ROOT / exp["questions"]
     questions = [json.loads(line) for line in questions_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     configs = [c for i, c in enumerate(exp["chunking"]) if (args.only is None or i in args.only) and not args.report_only]
-    faith = (Faithfulness({r["article_number"]: r for r in records}, concurrency=args.concurrency)
-             if args.faithfulness and configs and not args.perf_only else None)
+    want_faith = (args.faithfulness or args.faithfulness_only) and configs and not args.perf_only
+    faith = (FaithfulnessScorer({r["article_number"]: r for r in records}, answer_backend=args.answer_backend,
+                                judge_backend=args.judge_backend, concurrency=args.concurrency)
+             if want_faith else None)
     draft = sum(q.get("status") == "draft" for q in questions)
-    if draft:
+    if draft and not args.report_only:
         console.print(f"[yellow]! {draft}/{len(questions)} questions are still drafts (eval/README.md): "
                       "treat these scores as provisional.[/]")
 
@@ -307,16 +261,20 @@ def main(argv: list[str] | None = None) -> int:
         if args.perf_only:
             measure_existing(mlflow, cfg, records, questions, exp, ingest, console=console)
             continue
+        if args.faithfulness_only:
+            faithfulness_existing(mlflow, cfg, faith, exp["top_k"], console=console)
+            continue
         metrics, rows, info = run_config(cfg, records, questions, exp, ingest, faith=faith, console=console)
         with mlflow.start_run(run_name=name):
             mlflow.log_params({"strategy": cfg["strategy"], "chunk_size": cfg.get("chunk_size") or "whole article",
                                "overlap": cfg.get("overlap", 0), "embedding_model": cfg["model"],
-                               "normalize_arabic": ingest["normalize_arabic"], "top_k": exp["top_k"],
-                               "judge_model": faith.judge_model if faith else "none"})
+                               "normalize_arabic": ingest["normalize_arabic"], "top_k": exp["top_k"]})
             mlflow.log_metrics({**metrics, **{k: float(v) for k, v in info.items() if isinstance(v, int | float)}})
             mlflow.set_tags({"git_sha": git_sha(), "eval_questions": len(questions), "eval_draft": draft,
                              "eval_sha256": hashlib.sha256(questions_path.read_bytes()).hexdigest()[:12],
-                             "device": info["device"], **hardware_info(), "perf_measured_at": time.strftime("%Y-%m-%d")})
+                             "device": info["device"], **hardware_info(), "perf_measured_at": time.strftime("%Y-%m-%d"),
+                             **({"answer_model": faith.answer_model, "judge_model": faith.judge_model,
+                                 "faithfulness_measured_at": time.strftime("%Y-%m-%d")} if faith else {})})
             mlflow.log_dict({"config": cfg, "questions": rows}, "per_question.json")
         console.print({k: round(v, 3) for k, v in metrics.items()})
 

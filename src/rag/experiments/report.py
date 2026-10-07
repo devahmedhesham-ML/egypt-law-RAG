@@ -149,6 +149,11 @@ def build_report(runs: list[dict], questions: list[dict], production: dict | Non
     pairs = sum(1 for p in {q["pair"] for q in scoped}
                 if {q["lang"] for q in scoped if q["pair"] == p} == {"ar", "en"})
     draft = sum(q.get("status") == "draft" for q in questions)
+    accepted = sum(q.get("status") == "accepted" for q in questions)
+    tags = next((r.get("tags", {}) for r in runs if r.get("tags", {}).get("answer_model")), {})
+    answer_model = tags.get("answer_model", "the production model")
+    judge_model = tags.get("judge_model", "an LLM judge")
+    self_judged = answer_model == judge_model
     base = next((r for r in runs if production and r["cfg"] == production), runs[0])
     is_prod = bool(production) and base["cfg"] == production
     base_label = f"**{base['name']}**" if is_prod else (
@@ -167,6 +172,10 @@ def build_report(runs: list[dict], questions: list[dict], production: dict | Non
     add(f"> Generated {datetime.now(UTC):%Y-%m-%d} by `{command}` (git {git}) from the latest MLflow run of each "
         "configuration (`mlflow.db`, experiment `chunking`; open it with "
         "`mlflow ui --backend-store-uri sqlite:///mlflow.db`).")
+    if accepted:
+        add(f"> The {len(questions)} questions are the project's accepted evaluation set "
+            "([docs/evaluation-dataset.md](../docs/evaluation-dataset.md)); they have not been reviewed by a legal "
+            "expert.")
     if draft:
         add(f"> **{draft} of {len(questions)} questions are drafts awaiting legal review** "
             "([eval/README.md](../eval/README.md)), so every number here is provisional.")
@@ -260,8 +269,8 @@ def build_report(runs: list[dict], questions: list[dict], production: dict | Non
         "different articles.")
     add("4. **Score retrieval** by comparing that list with the question's relevant articles (the retrieval metrics).")
     if faith:
-        add(f"5. **Answer and judge**: the top {k} articles, always as whole articles whatever the chunking, go to Bedrock "
-            "`gpt-oss-120b` with the production prompt; RAGAS then judges how faithful the answer is to those articles "
+        add(f"5. **Answer and judge**: the top {k} articles, always as whole articles whatever the chunking, go to "
+            f"`{answer_model}` with the production prompt; RAGAS then judges how faithful the answer is to those articles "
             "(the same model acts as judge).")
         add("6. **Log** the configuration, the metrics and a `per_question.json` (every question's ranking, answer and "
             "score) as one MLflow run.")
@@ -333,8 +342,8 @@ def build_report(runs: list[dict], questions: list[dict], production: dict | Non
 
     if faith:
         add("### Answer metric: faithfulness (RAGAS)\n")
-        add(f"For each in-scope question, Bedrock `gpt-oss-120b` answers from the run's top {k} articles, and RAGAS scores "
-            "the answer in two LLM steps (the judge is the same Bedrock model):\n")
+        add(f"For each in-scope question, `{answer_model}` (the production model) answers from the run's top {k} "
+            f"articles, and RAGAS scores the answer in two LLM steps with `{judge_model}` as the judge:\n")
         add("1. **Split** the answer into short standalone statements (\"a gift of future property is void\").")
         add(f"2. **Check** each statement against the {k} articles: supported or not.")
         add("")
@@ -342,7 +351,7 @@ def build_report(runs: list[dict], questions: list[dict], production: dict | Non
             "which 3 are supported scores 0.75. The column is the average over all judged answers. It measures "
             "**grounding, not correctness**: an answer that faithfully repeats the wrong article still scores high, "
             "which is why it is read together with the retrieval metrics.\n")
-        add(f"`faithfulness_judged` = how many of the {n} answers received a score. An answer is left out when Bedrock "
+        add(f"`faithfulness_judged` = how many of the {n} answers received a score. An answer is left out when the model "
             "fails after retries, the judge errors, or the answer yields no statements.\n")
 
     # --- worked example ------------------------------------------------------------------------------------
@@ -412,12 +421,16 @@ def build_report(runs: list[dict], questions: list[dict], production: dict | Non
     if draft:
         add("- **Draft questions.** The relevant articles and reference answers have not been reviewed by a legal "
             "reader yet.")
+    elif accepted:
+        add("- **Not legally reviewed.** The questions were accepted as the evaluation set by the project owner; their "
+            "relevant articles and reference answers have not been checked by a legal expert.")
     add(f"- **Small sample.** {n} questions: differences of one or two questions ({step:.3f}–{2 * step:.3f}) are noise.")
     add("- **Articles named by number** are found by the number lookup, not the embedding, so every run gets those "
         "questions right.")
-    if faith:
-        add("- **Self-judging.** The same model answers and judges faithfulness, which can be lenient with its own "
-            "phrasing; faithfulness is best read as a comparison between runs, not as an absolute score.")
+    if faith and self_judged:
+        add(f"- **Self-judging.** `{answer_model}` both answers and judges faithfulness, which can be lenient with its "
+            "own phrasing, and a 7B judge is less reliable than a larger one; read faithfulness as a comparison between "
+            "runs, not as an absolute score.")
     add("")
     add("MLflow comparison view (screenshot): [mlflow_chunking_compare.png](mlflow_chunking_compare.png).")
     return "\n".join(L) + "\n"

@@ -9,24 +9,30 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 - [ ] Review another student's project, 300+ words covering setup, code, a strength, 2 improvements and an extension (R09)
 
 ## Waiting on you
-- [ ] **Review the evaluation set** (`eval/README.md` checklist; start with q28, missed by every run); scores stay provisional until then
-- [ ] MLflow screenshot for R04: retake with the `chunk_size`, `overlap`, `embedding_model` columns (or the Compare view) and save it as `reports/mlflow_chunking_compare.png` (the current `reports/Screenshot 2026-09-29 204352.png` shows metrics only)
+- [ ] **Free disk space on C:** (it filled up on 2026-10-07; Docker Desktop cannot start until it has room). See the report for options
+- [ ] After freeing space: run `docker compose up --build` once with the new `vllm` service, and the canary demo (`deploy/canary`)
+- [ ] Keep `~/actions-runner/run.sh` running when PRs should get the GPU quality gate (or `scripts/setup_gpu_runner.sh --remove`)
 - [ ] Arabic spot-check of 20 articles (Corpus view → Random 20)
-- [ ] Decide whether to promote a different chunking config / embedding model (after the eval review; today: keep article + Qwen3)
 - [ ] Peer review of another student's project (R09)
-- [ ] Check the Bedrock API key's expiry date in the AWS console (CI and reviewers will need a key that lasts)
 - [ ] Delete the unused IAM access keys from `.env` and deactivate them in AWS IAM
 
-## Next (recommended order)
-1. CI on GitHub Actions: lint → test → build/push the Docker image → faithfulness gate on 20 reviewed questions (R06)
-2. Register the chosen chunking config in the MLflow Model Registry (R04)
-3. BentoML async `/ask` with streaming, reusing `rag.pipeline` (R07)
-4. RAGAS: the other 3 metrics, results in MLflow per session; Grafana panel + faithfulness < 0.80 alert (R08)
-5. Locust at 50 users (p95), canary rollout documented (R07)
-6. Optimization: own AWQ-4bit build, re-ranker, RAGAS before/after (Module 4)
-7. Architecture diagram + session changelog (R10)
+## Done: R04–R07 (vLLM main model, CI/CD, BentoML serving)
+- [x] Qwen2.5-7B-Instruct-AWQ on vLLM is the main model everywhere (params, API, Docker, console, evaluation); Bedrock is optional
+- [x] Evaluation set accepted as is; 20 questions flagged `ci: true` for the quality gate
+- [x] Faithfulness: Qwen2.5 answers and judges (Bedrock judge optional); 8 chunking runs re-scored; judge reliability checked (`reports/judge_comparison.md`)
+- [x] MLflow Registry: `civil-code-retrieval` v2 with alias `production` (article + Qwen3-Embedding); screenshots in `reports/`
+- [x] FastAPI handlers async; `POST /ask/stream` streams tokens; `X-Release` header
+- [x] BentoML service (`rag.serving.service`) with async `/ask` and streaming `/ask_stream`
+- [x] Locust at 50 users: p95 12 s (`/ask`), 8.7 s to first streamed text, 0 failures (`reports/locust_summary.md`); bottleneck = vLLM generation throughput
+- [x] vLLM GPU share 0.75 → 0.60 so the embedding model runs on the GPU next to it
+- [x] Batch re-indexing (`rag.ingest.batch`) tested with a new document (`reports/batch_reindex.md`)
+- [x] Index fallback `rag.ingest.ensure`: local → dvc pull → build (used by CI)
+- [x] Canary rollout: nginx weighted split + `set_weights.sh`, documented in the README (`deploy/canary/`)
+- [x] CI workflow: lint → test → index → Docker build/push to GHCR → faithfulness gate on a self-hosted GPU runner
+- [x] Quality gate passes locally: faithfulness 0.787 ≥ 0.75 on the 20 CI questions
+- [x] `docker-compose.yml` starts vLLM + API (config validated; not yet run here: disk full)
 
-## Done: API, Docker, evaluation set, MLflow chunking experiments
+## Done: API, Docker, evaluation set, MLflow chunking experiments (R02–R04)
 - [x] vLLM moved to port 8001 so the API owns 8000
 - [x] `rag.pipeline`: one retrieve → answer → check-citations path shared by the API, evaluation and (next) BentoML
 - [x] `python -m rag.api`: `/ask` + `/health`, 422 on empty/blank/missing questions, 503 with the reason when the LLM or index is down
@@ -75,7 +81,7 @@ Plan: [docs/plans/corpus-build.md](docs/plans/corpus-build.md)
 - [x] `dvc repro` re-indexes the corpus reproducibly from tracked documents (R05)
 - [x] Wire retrieval into the console: Ask/Compare search the index per question (top-k); Retrieval inspector view
 - [x] Retrieval in the production `/ask` (FastAPI, through `rag.pipeline`); the BentoML wrapper is in section 5
-- [ ] Batch re-indexing script tested with at least one new document
+- [x] Batch re-indexing script tested with at least one new document (`reports/batch_reindex.md`)
 
 ## 3. Code, API, Docker (Module 1 · R01–R03, p. 69)
 - [x] `src/` layout with `pyproject.toml`; `pip install -e .` works (R01)
@@ -88,17 +94,17 @@ Plan: [docs/plans/corpus-build.md](docs/plans/corpus-build.md)
 
 ## 4. Tracking, versioning, CI (Module 2 · R04–R06, p. 69)
 - [x] MLflow logs each config: `chunk_size`, `overlap`, `embedding_model`, `faithfulness` (R04)
-- [ ] 5+ runs compared: 8 runs done (`reports/chunking_experiments.md`); the MLflow screenshot needs the config columns (see *Waiting on you*) (R04)
-- [ ] Best chunking config registered in the MLflow Registry (R04)
-- [ ] GitHub Actions: lint → test → rebuild index → push Docker image (R06)
-- [ ] CI fails if RAGAS faithfulness < 0.75 on a 20-question test set (R06)
+- [x] 5+ runs compared: 8 runs (`reports/chunking_experiments.md`), MLflow screenshot `reports/mlflow_chunking_compare.png` (R04)
+- [x] Best chunking config registered in the MLflow Registry, alias `production` (R04)
+- [x] GitHub Actions: lint → test → rebuild index → push Docker image (R06)
+- [x] CI fails if RAGAS faithfulness < 0.75 on a 20-question test set (R06; self-hosted GPU runner)
 
 ## 5. Production serving (Module 3 · R07, pp. 66, 69)
-- [x] vLLM serves the generative LLM, model name in README (`Qwen/Qwen2.5-7B-Instruct-AWQ`, `scripts/serve_vllm.sh`)
-- [ ] BentoML wraps the RAG pipeline with an async `/ask` endpoint
-- [ ] Streaming: tokens appear progressively in `curl` output (works in the test console; not yet on `/ask`)
-- [ ] Locust report at 50 concurrent users in `/reports/`, with p95 latency documented
-- [ ] Canary rollout config documented in README
+- [x] vLLM serves the generative LLM, model name in README (`Qwen/Qwen2.5-7B-Instruct-AWQ`, `scripts/serve_vllm.sh`, compose `vllm` service)
+- [x] BentoML wraps the RAG pipeline with an async `/ask` endpoint
+- [x] Streaming: tokens appear progressively in `curl -N` output (`/ask_stream`, `/ask/stream`)
+- [x] Locust report at 50 concurrent users in `/reports/`, with p95 latency documented
+- [x] Canary rollout config documented in README
 
 ## 6. Optimization (Module 4, p. 66)
 - [ ] Own AWQ-4bit quantization of the generative model (calibrated on Arabic articles)
@@ -117,7 +123,7 @@ Plan: [docs/plans/corpus-build.md](docs/plans/corpus-build.md)
 - [ ] Cosine embedding drift and token cost tracked
 
 ## 8. README and architecture (R10)
-- [ ] 3-command setup that the reviewer runs without asking anything (README quick start works from a fresh clone, but `/ask` needs an LLM key the reviewer does not have)
+- [ ] 3-command setup that the reviewer runs without asking anything (compose now starts vLLM too, no key needed on a GPU machine; to verify once disk space allows)
 - [ ] Architecture diagram covering all 5 sessions
 - [ ] Session changelog
 

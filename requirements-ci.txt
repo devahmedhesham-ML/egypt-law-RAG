@@ -1,0 +1,8 @@
+# GitHub Actions (CPU runners): lint, tests, and the index step (local → dvc pull → build).
+# Locked in requirements-ci.lock with CPU-only torch; versions follow requirements.lock.
+-r requirements-api.txt
+pymupdf>=1.24          # corpus build (index fallback) and corpus tests
+rich>=13.7             # build/ingest summaries
+nvidia-ml-py>=12.535   # imported by the embedder; reports "no GPU" on CI runners
+dvc[s3]>=3.50          # pull the pinned corpus and index from the public S3 remote
+pytest>=8.0

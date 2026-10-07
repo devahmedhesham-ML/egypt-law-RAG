@@ -1,0 +1,136 @@
+# Lint → test → index → Docker image, on every PR and on main; plus the faithfulness quality gate (rubric R06).
+#
+# The gate runs the production model (Qwen2.5-7B on vLLM), which needs a GPU, so it runs on a self-hosted runner
+# labelled `gpu` (scripts/setup_gpu_runner.sh). It only runs when the repository variable GPU_RUNNER is "true",
+# and never for pull requests from forks: untrusted code must not reach a machine that holds secrets.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  LANGFUSE_TRACING_ENABLED: "false"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: ruff (rules in pyproject.toml)
+        run: uvx ruff check .
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: requirements-ci.lock
+      - name: Install (CPU-only, locked)
+        run: |
+          uv venv
+          uv pip install --torch-backend cpu -r requirements-ci.lock
+          uv pip install --no-deps -e .
+      - name: pytest
+        run: .venv/bin/pytest -q
+
+  index:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: requirements-ci.lock
+      - name: Install (CPU-only, locked)
+        run: |
+          uv venv
+          uv pip install --torch-backend cpu -r requirements-ci.lock
+          uv pip install --no-deps -e .
+      - name: Cache the embedding model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ hashFiles('params.yaml') }}
+      - name: Ensure the index (local → dvc pull from the public remote → build on CPU)
+        run: .venv/bin/python -m rag.ingest.ensure
+      - name: Retrieval smoke test on the index
+        run: |
+          .venv/bin/python - <<'EOF'
+          from rag.retrieval import Retriever
+          r = Retriever()
+          for q, want in [("ما حكم هبة الأموال المستقبلة؟", 492), ("At what age does a person reach legal majority?", 44)]:
+              top = [h.article_number for h in r.retrieve(q, 5).hits]
+              print(q, "->", top)
+              assert want in top, f"expected Article {want} in the top 5 for {q!r}"
+          EOF
+
+  docker:
+    needs: index
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/egypt-law-rag-api
+          tags: |
+            type=ref,event=pr
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+      - name: Build and push (the build pulls the corpus and index pinned in dvc.lock)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: GIT_SHA=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  quality-gate:
+    needs: index
+    if: >-
+      vars.GPU_RUNNER == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: [self-hosted, linux, gpu]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: RAGAS faithfulness ≥ 0.75 on the 20 CI questions (Qwen2.5 on vLLM)
+        run: scripts/ci_gate.sh
+      - name: Upload the gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: faithfulness-gate
+          path: reports/faithfulness_gate.md

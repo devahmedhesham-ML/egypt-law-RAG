@@ -1,0 +1,911 @@
+aiobotocore==3.9.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc-s3
+    #   s3fs
+aiohappyeyeballs==2.7.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiohttp
+aiohttp==3.14.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiobotocore
+    #   aiohttp-retry
+    #   fsspec
+    #   kubernetes
+    #   s3fs
+aiohttp-retry==2.9.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc-http
+    #   scmrepo
+aioitertools==0.13.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiobotocore
+aiosignal==1.4.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiohttp
+amqp==5.4.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   kombu
+annotated-doc==0.0.5
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   fastapi
+annotated-types==0.8.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   pydantic
+antlr4-python3-runtime==4.9.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   hydra-core
+    #   omegaconf
+anyio==4.15.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   httpx
+    #   openai
+    #   starlette
+    #   watchfiles
+appdirs==1.4.4
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   iterative-telemetry
+asyncssh==2.24.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   scmrepo
+atpublic==8.0.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   flufl-lock
+attrs==26.1.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiohttp
+    #   dvc
+    #   dvc-data
+    #   jsonschema
+    #   referencing
+    #   sqltrie
+backoff==2.2.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   langfuse
+bcrypt==5.0.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+billiard==4.3.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   celery
+botocore==1.43.75
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiobotocore
+    #   dvc-s3
+build==1.6.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+celery==5.6.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   dvc-task
+certifi==2026.7.22
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   httpcore
+    #   httpx
+    #   kubernetes
+    #   requests
+cffi==2.1.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   cryptography
+    #   pygit2
+charset-normalizer==3.5.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   requests
+chromadb==1.5.9
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-api.txt
+click==8.5.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   celery
+    #   click-didyoumean
+    #   click-plugins
+    #   click-repl
+    #   gto
+    #   huggingface-hub
+    #   typer
+    #   uvicorn
+click-didyoumean==0.3.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   celery
+click-plugins==1.1.1.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   celery
+click-repl==0.4.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   celery
+cloudpickle==3.1.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   joblib
+colorama==0.4.6
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+configobj==5.0.9
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+cryptography==50.0.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   asyncssh
+dictdiffer==0.10.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc-data
+diskcache==5.6.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc-data
+distro==1.9.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   iterative-telemetry
+    #   openai
+dpath==2.2.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+dulwich==1.2.15
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   dvc-studio-client
+    #   scmrepo
+durationpy==0.11
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   kubernetes
+dvc==3.67.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-ci.txt
+    #   dvc-s3
+dvc-data==3.18.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+dvc-http==2.32.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+dvc-objects==5.2.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   dvc-data
+dvc-render==1.0.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+dvc-s3==3.3.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+dvc-studio-client==0.23.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+dvc-task==0.40.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+entrypoints==0.4
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   gto
+fastapi==0.141.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-api.txt
+filelock==4.0.4
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   huggingface-hub
+    #   iterative-telemetry
+    #   torch
+flatbuffers==25.12.19
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   onnxruntime
+flatten-dict==0.5.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   dvc-s3
+flufl-lock==9.1.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+frozenlist==1.8.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiohttp
+    #   aiosignal
+fsspec==2026.6.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   dvc-data
+    #   dvc-http
+    #   dvc-objects
+    #   dvc-s3
+    #   huggingface-hub
+    #   s3fs
+    #   scmrepo
+    #   torch
+funcy==2.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   dvc-s3
+    #   dvc-task
+    #   gto
+gitdb==4.0.12
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   gitpython
+gitpython==3.1.62
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   scmrepo
+googleapis-common-protos==1.75.4
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+grandalf==0.8
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+grpcio==1.84.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+    #   opentelemetry-exporter-otlp-proto-grpc
+gto==1.10.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+h11==0.16.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   httpcore
+    #   uvicorn
+hf-xet==1.6.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   huggingface-hub
+httpcore==1.0.9
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   httpx
+httptools==0.8.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   uvicorn
+httpx==0.28.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+    #   huggingface-hub
+    #   langfuse
+    #   openai
+huggingface-hub==1.33.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   sentence-transformers
+    #   tokenizers
+    #   transformers
+hydra-core==1.3.7
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+idna==3.20
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   anyio
+    #   httpx
+    #   requests
+    #   yarl
+importlib-resources==7.1.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+iniconfig==2.3.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   pytest
+iterative-telemetry==0.0.10
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+jinja2==3.1.6
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   torch
+jiter==0.14.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   openai
+jmespath==1.1.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiobotocore
+    #   botocore
+joblib==1.6.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   scikit-learn
+jsonschema==4.26.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+jsonschema-specifications==2025.9.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   jsonschema
+kombu==5.6.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   celery
+    #   dvc
+    #   dvc-task
+kubernetes==36.0.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+langfuse==4.15.6
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-api.txt
+markdown-it-py==4.2.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   rich
+markupsafe==3.0.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   jinja2
+mdurl==0.1.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   markdown-it-py
+mmh3==5.3.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+mpmath==1.3.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   sympy
+multidict==6.9.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiobotocore
+    #   aiohttp
+    #   yarl
+narwhals==2.26.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   scikit-learn
+networkx==3.7
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   torch
+numpy==2.5.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-api.txt
+    #   chromadb
+    #   onnxruntime
+    #   scikit-learn
+    #   scipy
+    #   sentence-transformers
+    #   transformers
+nvidia-ml-py==13.615.71
+    # via -r requirements-ci.txt
+oauthlib==3.3.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   requests-oauthlib
+omegaconf==2.3.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   hydra-core
+onnxruntime==1.30.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+openai==2.54.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-api.txt
+opentelemetry-api==1.45.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+    #   langfuse
+    #   opentelemetry-exporter-http-transport
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+    #   opentelemetry-sdk
+    #   opentelemetry-semantic-conventions
+opentelemetry-exporter-http-transport==0.66b0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-otlp-common==0.66b0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-otlp-proto-common==1.45.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-otlp-proto-grpc==1.45.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+opentelemetry-exporter-otlp-proto-http==1.45.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   langfuse
+opentelemetry-proto==1.45.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   opentelemetry-exporter-otlp-proto-common
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-sdk==1.45.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+    #   langfuse
+    #   opentelemetry-exporter-otlp-common
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-semantic-conventions==0.66b0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   opentelemetry-sdk
+orjson==3.12.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+    #   dvc-data
+    #   sqltrie
+overrides==7.7.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+packaging==26.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   build
+    #   dvc
+    #   huggingface-hub
+    #   hydra-core
+    #   kombu
+    #   langfuse
+    #   onnxruntime
+    #   pytest
+    #   transformers
+pathspec==1.1.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   scmrepo
+platformdirs==4.12.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+pluggy==1.6.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   pytest
+prompt-toolkit==3.0.53
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   click-repl
+propcache==0.5.4
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiohttp
+    #   yarl
+protobuf==6.33.6
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   googleapis-common-protos
+    #   onnxruntime
+    #   opentelemetry-proto
+psutil==7.2.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   flufl-lock
+pybase64==1.5.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+pycparser==3.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   cffi
+pydantic==2.13.5
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+    #   fastapi
+    #   gto
+    #   langfuse
+    #   openai
+    #   pydantic-settings
+pydantic-core==2.46.5
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   pydantic
+pydantic-settings==2.15.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+    #   gto
+pydot==4.0.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+pygit2==1.20.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   scmrepo
+pygments==2.21.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   pytest
+    #   rich
+pygtrie==2.6.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   dvc-data
+    #   scmrepo
+    #   sqltrie
+pymupdf==1.28.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-ci.txt
+pyparsing==3.3.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   grandalf
+    #   pydot
+pypika==0.51.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+pyproject-hooks==1.3.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   build
+pytest==9.1.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-ci.txt
+python-dateutil==2.9.0.post0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiobotocore
+    #   botocore
+    #   celery
+    #   kubernetes
+python-dotenv==1.2.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-api.txt
+    #   pydantic-settings
+    #   uvicorn
+pyyaml==6.0.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-api.txt
+    #   chromadb
+    #   huggingface-hub
+    #   kubernetes
+    #   omegaconf
+    #   transformers
+    #   uvicorn
+referencing==0.37.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   jsonschema
+    #   jsonschema-specifications
+regex==2026.9.10
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   transformers
+requests==2.34.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   dvc-studio-client
+    #   iterative-telemetry
+    #   kubernetes
+    #   requests-oauthlib
+requests-oauthlib==2.0.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   kubernetes
+rich==14.3.4
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-ci.txt
+    #   chromadb
+    #   dvc
+    #   gto
+    #   typer
+rpds-py==2026.6.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   jsonschema
+    #   referencing
+ruamel-yaml==0.19.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   gto
+s3fs==2026.6.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc-s3
+safetensors==0.8.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   transformers
+scikit-learn==1.9.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   sentence-transformers
+scipy==1.18.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   scikit-learn
+    #   sentence-transformers
+scmrepo==3.6.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   gto
+semver==3.1.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   gto
+sentence-transformers==6.1.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-api.txt
+setuptools==84.0.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   torch
+    #   zc-lockfile
+shellingham==1.5.4
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   typer
+shortuuid==1.0.13
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   dvc-task
+shtab==1.12.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+six==1.17.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   kubernetes
+    #   python-dateutil
+smmap==5.0.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   gitdb
+sniffio==1.3.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   openai
+sqltrie==0.11.3
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc-data
+starlette==1.7.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   fastapi
+sympy==1.14.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   torch
+tabulate==0.10.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   gto
+tenacity==9.1.4
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+threadpoolctl==3.7.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   scikit-learn
+tokenizers==0.23.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+    #   sentence-transformers
+    #   transformers
+tomlkit==0.15.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+torch==2.14.0+cpu
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-api.txt
+    #   sentence-transformers
+tqdm==4.70.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-api.txt
+    #   chromadb
+    #   dvc
+    #   dvc-data
+    #   fsspec
+    #   huggingface-hub
+    #   openai
+    #   scmrepo
+    #   sentence-transformers
+    #   transformers
+transformers==5.17.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   sentence-transformers
+typer==0.19.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   chromadb
+    #   transformers
+typing-extensions==4.16.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiohttp
+    #   aiosignal
+    #   anyio
+    #   asyncssh
+    #   chromadb
+    #   click-repl
+    #   fastapi
+    #   grpcio
+    #   huggingface-hub
+    #   langfuse
+    #   openai
+    #   opentelemetry-api
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+    #   opentelemetry-sdk
+    #   opentelemetry-semantic-conventions
+    #   pydantic
+    #   pydantic-core
+    #   referencing
+    #   sentence-transformers
+    #   starlette
+    #   torch
+    #   typer
+    #   typing-inspection
+typing-inspection==0.4.4
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   fastapi
+    #   pydantic
+    #   pydantic-settings
+tzdata==2026.4
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   kombu
+tzlocal==5.4.4
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   celery
+urllib3==2.8.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   botocore
+    #   dulwich
+    #   kubernetes
+    #   opentelemetry-exporter-http-transport
+    #   requests
+uvicorn==0.54.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   -r requirements-api.txt
+    #   chromadb
+uvloop==0.22.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   uvicorn
+vine==5.1.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   amqp
+    #   celery
+    #   kombu
+voluptuous==0.16.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc
+    #   dvc-studio-client
+watchfiles==1.3.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   uvicorn
+wcwidth==0.9.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   prompt-toolkit
+websocket-client==1.9.2
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   kubernetes
+websockets==17.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   uvicorn
+wrapt==2.5.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiobotocore
+    #   langfuse
+yarl==1.25.1
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   aiohttp
+zc-lockfile==4.0
+    # via
+    #   -c requirements.lock (app venv versions)
+    #   dvc

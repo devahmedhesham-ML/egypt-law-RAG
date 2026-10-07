@@ -9,9 +9,8 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 - [ ] Review another student's project, 300+ words covering setup, code, a strength, 2 improvements and an extension (R09)
 
 ## Waiting on you
-- [ ] **Repair Docker Desktop**: C: filled up on 2026-10-07 and Docker's data disk aborted its journal. Quit Docker Desktop → `wsl --shutdown` in PowerShell → start Docker Desktop (if it still fails: Troubleshoot → Clean / Purge data; our images rebuild from the repo)
-- [ ] **Free more space on C:** (≥ 15 GB) before the first `docker compose up` with the `vllm` service: its image is ~10 GB
-- [ ] Then run `docker compose up --build` once with the `vllm` service, and the canary demo (`deploy/canary`)
+- [x] Docker Desktop repaired after the full disk (`wsl --shutdown`, new version 29.8.2; images and containers intact); WSL integration on; 60 GB freed
+- [x] Canary demo run end to end (`reports/canary_test.md`)
 - [ ] Keep `~/actions-runner/run-gpu.sh` running when PRs should get the GPU quality gate (or `scripts/setup_gpu_runner.sh --remove`)
 - [ ] Arabic spot-check of 20 articles (Corpus view → Random 20)
 - [ ] Peer review of another student's project (R09)
@@ -28,10 +27,10 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 - [x] vLLM GPU share 0.75 → 0.60 so the embedding model runs on the GPU next to it
 - [x] Batch re-indexing (`rag.ingest.batch`) tested with a new document (`reports/batch_reindex.md`)
 - [x] Index fallback `rag.ingest.ensure`: local → dvc pull → build (used by CI)
-- [x] Canary rollout: nginx weighted split + `set_weights.sh`, documented in the README (`deploy/canary/`)
+- [x] Canary rollout: nginx weighted split + `set_weights.sh`, documented in the README and tested (`deploy/canary/`, `reports/canary_test.md`)
 - [x] CI workflow: lint → test → index → Docker build/push to GHCR → faithfulness gate on a self-hosted GPU runner; PR #1 green (gate 0.802 in CI, index pulled from DVC) and merged; image public at `ghcr.io/devahmedhesham-ml/egypt-law-rag-api`
 - [x] Quality gate passes locally: faithfulness 0.787 ≥ 0.75 on the 20 CI questions
-- [x] `docker-compose.yml` starts vLLM + API (config validated; not yet run here: disk full)
+- [x] `docker-compose.yml` starts vLLM + API: verified (both healthy in 80 s; curl checks pass with Qwen2.5 in the container, streaming works)
 
 ## Done: API, Docker, evaluation set, MLflow chunking experiments (R02–R04)
 - [x] vLLM moved to port 8001 so the API owns 8000
@@ -124,7 +123,7 @@ Plan: [docs/plans/corpus-build.md](docs/plans/corpus-build.md)
 - [ ] Cosine embedding drift and token cost tracked
 
 ## 8. README and architecture (R10)
-- [ ] 3-command setup that the reviewer runs without asking anything (compose now starts vLLM too, no key needed on a GPU machine; to verify once disk space allows)
+- [x] 3-command setup that the reviewer runs without asking anything (compose starts vLLM too, no key needed on a GPU machine; verified)
 - [ ] Architecture diagram covering all 5 sessions
 - [ ] Session changelog
 

@@ -18,8 +18,10 @@ curl -X POST localhost:8000/ask -H 'Content-Type: application/json' -d '{"questi
 curl -N -X POST localhost:8000/ask/stream -H 'Content-Type: application/json' -d '{"question": "What is a lease?"}'
 ```
 
-The generative model is **Qwen/Qwen2.5-7B-Instruct-AWQ served by vLLM** (the `vllm` service, NVIDIA GPU with 16 GB;
-the first start downloads the ~5.5 GB model). The API image needs only Docker to build: it pulls the corpus and the
+The generative model is **Qwen/Qwen2.5-7B-Instruct-AWQ served by vLLM** (the `vllm` service, NVIDIA GPU with 16 GB).
+The first start downloads the official vLLM image (~10 GB, 21.6 GB on disk: CUDA, PyTorch and vLLM's GPU kernels)
+and the ~5.5 GB model; after that it is ready in about 80 s. Verified with `scripts/curl_checks.sh`:
+[reports/curl_checks.md](reports/curl_checks.md). The API image needs only Docker to build: it pulls the corpus and the
 Chroma index pinned in `dvc.lock` from the public S3 bucket (no AWS account, no DVC install) and bakes in the
 embedding model, so it runs offline except for the LLM call. Variants: a vLLM server already running on the host
 (`scripts/serve_vllm.sh`) → `VLLM_BASE_URL=http://host.docker.internal:8001/v1 docker compose up api`; no GPU →
@@ -242,7 +244,8 @@ deploy/canary/set_weights.sh 0 100    # 3. promote; or `100 0` to roll back at a
 Promote only while the canary matches stable on: 5xx rate (nginx log, `release=canary`), p95 latency (rerun Locust
 against :8080), and answer quality, meaning the faithfulness gate run against the canary image and its Langfuse
 scores (`citations_outside_context`, tester ratings) filtered by `environment=canary`. A canary that stops answering
-leaves rotation automatically (`max_fails`).
+leaves rotation automatically (`max_fails`). Tested end to end (90/10 → 270/30 requests, 50/50, promote, roll back,
+canary crash with no failed request): [reports/canary_test.md](reports/canary_test.md).
 
 ## CI/CD (GitHub Actions)
 

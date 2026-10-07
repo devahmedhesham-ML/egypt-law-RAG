@@ -28,6 +28,7 @@ botocore[crt]          # required to read `aws login` sessions (no long-lived ac
 # --- Serve ---
 bentoml>=1.3           # wraps RAG, streaming /ask
 fastapi>=0.115         # test console dev server (python -m rag.ui)
+locust>=2.32           # load test: 50 concurrent users against BentoML (loadtest/locustfile.py)
 uvicorn>=0.30
 
 # --- Evaluate + monitor ---

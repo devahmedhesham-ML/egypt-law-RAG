@@ -88,7 +88,7 @@ def _retrieval() -> Stage:
 
 def _bedrock() -> Stage:
     params = load_llm_params()["bedrock"]
-    title = f"Bedrock · {params['model']}"
+    title = f"Bedrock (optional) · {params['model']}"
     key = os.environ.get("Bedrock_API_key")
     if not key:
         return Stage("llm_bedrock", "Generation", title, OFFLINE, "Bedrock_API_key is not set.", "Add it to .env.")
@@ -104,7 +104,7 @@ def _bedrock() -> Stage:
 
 def _vllm() -> Stage:
     params = load_llm_params()["vllm"]
-    title = f"vLLM · {params['model']}"
+    title = f"vLLM (main) · {params['model']}"
     base_url = os.environ.get("VLLM_BASE_URL", params["base_url"])
     try:
         served = [m["id"] for m in httpx.get(f"{base_url}/models", timeout=2).json()["data"]]
@@ -188,7 +188,7 @@ def _static() -> list[Stage]:
     ]
 
 
-_LIVE: list[Callable[[], Stage]] = [_source_pdf, _corpus, _index, _retrieval, _bedrock, _vllm, _api, _mlflow,
+_LIVE: list[Callable[[], Stage]] = [_source_pdf, _corpus, _index, _retrieval, _vllm, _bedrock, _api, _mlflow,
                                   _tracing]
 
 

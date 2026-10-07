@@ -6,8 +6,11 @@ The test console keeps its own streaming path but uses the same Retriever and an
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
+from collections.abc import AsyncIterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,7 +18,7 @@ import yaml
 from langfuse import propagate_attributes
 
 from rag import tracing
-from rag.llm import AnswerResult, LLMBackend, answer, get_backend
+from rag.llm import AnswerResult, LLMBackend, answer, answer_async, answer_stream_async, get_backend
 from rag.llm.factory import load_llm_params
 from rag.retrieval import Retrieval, Retriever
 
@@ -89,30 +92,78 @@ class Pipeline:
         context = [self.articles[h.article_number] for h in retrieval.hits if h.article_number in self.articles]
         return retrieval, context
 
-    def ask(self, question: str, *, k: int | None = None, max_tokens: int | None = None,
-            temperature: float | None = None, tags: list[str] | None = None,
-            session_id: str | None = None) -> RagAnswer:
-        """Retrieve, answer and check citations under one `answer-question` trace."""
+    @contextmanager
+    def _trace(self, question: str, k: int, tags: list[str] | None, session_id: str | None):
+        """The `answer-question` root span with the trace's name, session, tags and metadata."""
         lf = tracing.client()
-        k = k or self.top_k
         with lf.start_as_current_observation(as_type="span", name="answer-question",
                                              input={"question": question}) as root, propagate_attributes(
             trace_name="answer-question", session_id=session_id,
             tags=[*(tags or []), self.backend_name, "retrieved-context"],
             metadata=tracing.str_metadata(backend=self.backend_name, context_mode="retrieve", top_k=k),
         ):
+            yield root, (lf.get_current_trace_id() if tracing.enabled() else None)
+
+    @staticmethod
+    def _close(root, result: AnswerResult, context: list[dict]) -> None:
+        root.update(output={"answer": result.text, "cited_articles": result.citations.cited},
+                    metadata={"context_articles": [a["article_number"] for a in context]})
+
+    def _gen_args(self, max_tokens: int | None, temperature: float | None) -> dict:
+        return {"max_tokens": max_tokens or self.llm_params["max_tokens"],
+                "temperature": self.llm_params["temperature"] if temperature is None else temperature}
+
+    def ask(self, question: str, *, k: int | None = None, max_tokens: int | None = None,
+            temperature: float | None = None, tags: list[str] | None = None,
+            session_id: str | None = None) -> RagAnswer:
+        """Retrieve, answer and check citations under one `answer-question` trace."""
+        k = k or self.top_k
+        with self._trace(question, k, tags, session_id) as (root, trace_id):
             try:
                 retrieval, context = self.retrieve(question, k)
-                result = answer(self.backend, question, context,
-                                max_tokens=max_tokens or self.llm_params["max_tokens"],
-                                temperature=self.llm_params["temperature"] if temperature is None else temperature)
+                result = answer(self.backend, question, context, **self._gen_args(max_tokens, temperature))
             except Exception as e:
                 root.update(level="ERROR", status_message=f"{type(e).__name__}: {e}")
                 raise
-            root.update(output={"answer": result.text, "cited_articles": result.citations.cited},
-                        metadata={"context_articles": [a["article_number"] for a in context]})
-            trace_id = lf.get_current_trace_id() if tracing.enabled() else None
+            self._close(root, result, context)
         return RagAnswer(question, result, retrieval, context, trace_id)
+
+    async def aask(self, question: str, *, k: int | None = None, max_tokens: int | None = None,
+                   temperature: float | None = None, tags: list[str] | None = None,
+                   session_id: str | None = None) -> RagAnswer:
+        """ask() for async servers: retrieval (CPU/GPU-bound) in a worker thread, the LLM call awaited."""
+        k = k or self.top_k
+        with self._trace(question, k, tags, session_id) as (root, trace_id):
+            try:
+                retrieval, context = await asyncio.to_thread(self.retrieve, question, k)
+                result = await answer_async(self.backend, question, context, **self._gen_args(max_tokens, temperature))
+            except Exception as e:
+                root.update(level="ERROR", status_message=f"{type(e).__name__}: {e}")
+                raise
+            self._close(root, result, context)
+        return RagAnswer(question, result, retrieval, context, trace_id)
+
+    async def astream(self, question: str, *, k: int | None = None, max_tokens: int | None = None,
+                      temperature: float | None = None, tags: list[str] | None = None,
+                      session_id: str | None = None) -> AsyncIterator[str | RagAnswer]:
+        """Yields the answer's text as it is generated, then one RagAnswer (sources, citations, trace id)."""
+        k = k or self.top_k
+        with self._trace(question, k, tags, session_id) as (root, trace_id):
+            try:
+                retrieval, context = await asyncio.to_thread(self.retrieve, question, k)
+                async for item in answer_stream_async(self.backend, question, context,
+                                                      **self._gen_args(max_tokens, temperature)):
+                    if isinstance(item, AnswerResult):
+                        self._close(root, item, context)
+                        yield RagAnswer(question, item, retrieval, context, trace_id)
+                    else:
+                        yield item
+            except (GeneratorExit, asyncio.CancelledError):
+                root.update(level="WARNING", status_message="client disconnected before the answer finished")
+                raise
+            except Exception as e:
+                root.update(level="ERROR", status_message=f"{type(e).__name__}: {e}")
+                raise
 
     def documents_indexed(self) -> int | None:
         """Vectors in the Chroma collection (one per article), or None if the index is missing."""

@@ -5,12 +5,18 @@ languages. `relevant_articles` are the articles a correct answer rests on; `refe
 correct answer for RAGAS (in the question's language). Questions paraphrase the articles instead of
 copying their wording, so retrieval is tested on meaning, not shared words.
 
-Status: DRAFT, written from the article texts; needs a legal reader's review before its numbers
-are trusted (see eval/README.md).
+Status: ACCEPTED as the project's evaluation set by the project owner (2026-10-07). Written from the
+article texts; not reviewed by a legal expert (see docs/evaluation-dataset.md, "Limits").
+
+`ci: true` marks the 20 questions of the CI quality gate: 10 topics in both languages, covering every book and
+both question types (factual: q03 q04 q11 q19 q27; reasoning: q01 q08 q17 q22 q26).
 """
 
 import json
 from pathlib import Path
+
+STATUS = "accepted"
+CI_PAIRS = {"q01", "q03", "q04", "q08", "q11", "q17", "q19", "q22", "q26", "q27"}
 
 # (pair, type, articles, en_question, en_reference, ar_question, ar_reference)
 TOPICS = [
@@ -178,10 +184,11 @@ def rows() -> list[dict]:
     for pair, kind, articles, en_q, en_ref, ar_q, ar_ref in TOPICS:
         for lang, question, reference in (("ar", ar_q, ar_ref), ("en", en_q, en_ref)):
             out.append({"id": f"{pair}-{lang}", "pair": pair, "lang": lang, "type": kind, "question": question,
-                        "relevant_articles": articles, "reference": reference, "status": "draft"})
+                        "relevant_articles": articles, "reference": reference, "status": STATUS,
+                        "ci": pair in CI_PAIRS})
     for qid, lang, kind, articles, question, reference in SINGLES:
         out.append({"id": qid, "pair": qid.split("-")[0], "lang": lang, "type": kind, "question": question,
-                    "relevant_articles": articles, "reference": reference, "status": "draft"})
+                    "relevant_articles": articles, "reference": reference, "status": STATUS, "ci": False})
     return out
 
 

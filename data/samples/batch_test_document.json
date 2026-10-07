@@ -1,0 +1,32 @@
+[
+ {
+  "article_number": 1150,
+  "part_number": 2,
+  "part_title_en": "Real Rights",
+  "part_title_ar": "الحقوق العينية",
+  "book_number": 4,
+  "book_title_en": "Accessory Rights or Real Securities",
+  "book_title_ar": "الحقوق العينية التبعية أو التأمينات العينية",
+  "chapter_number": null,
+  "chapter_title_en": "Test documents",
+  "chapter_title_ar": "وثائق اختبار",
+  "section_number": null,
+  "section_title_en": null,
+  "section_title_ar": null,
+  "topic_number": null,
+  "topic_title_en": null,
+  "topic_title_ar": null,
+  "subtopic_title_en": null,
+  "subtopic_title_ar": null,
+  "text_ar": "(نص اختباري، ليس من القانون المصري) يكون للتوقيع الإلكتروني على العقود المبرمة عبر الإنترنت ما للتوقيع الخطي من حجية في الإثبات، متى أمكن التحقق من هوية الموقع وسلامة البيانات الموقعة.",
+  "text_en": "(Test text, not Egyptian law) An electronic signature on a contract concluded online has the same evidential force as a handwritten signature, provided the signer's identity and the integrity of the signed data can be verified.",
+  "is_repealed": false,
+  "repeal_note": null,
+  "repeal_note_ar": null,
+  "source_pages": [
+   0
+  ],
+  "ar_number": 1150,
+  "citation": "Test document for batch re-indexing (not part of the Egyptian Civil Code), Article 1150"
+ }
+]

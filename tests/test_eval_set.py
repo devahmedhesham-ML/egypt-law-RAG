@@ -38,3 +38,11 @@ def test_references_cite_their_relevant_articles():
 def test_relevant_articles_exist_in_the_corpus():
     numbers = {a["article_number"] for a in json.loads(CORPUS.read_text(encoding="utf-8"))}
     assert all(n in numbers for q in QUESTIONS for n in q["relevant_articles"])
+
+
+def test_ci_gate_subset_is_twenty_paired_questions_across_the_code():
+    ci = [q for q in QUESTIONS if q.get("ci")]
+    assert len(ci) == 20 and all(q["relevant_articles"] for q in ci)
+    assert Counter(q["lang"] for q in ci) == {"ar": 10, "en": 10}
+    assert {q["type"] for q in ci} == {"factual", "reasoning"}
+    assert all(q["status"] in ("accepted", "reviewed") for q in QUESTIONS)

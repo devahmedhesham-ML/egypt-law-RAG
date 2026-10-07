@@ -8,11 +8,11 @@ Both backends speak the Chat Completions API:
 from __future__ import annotations
 
 import time
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 import openai
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
 
 from rag.llm.base import LLMError, LLMResult, Message
 
@@ -38,12 +38,22 @@ class OpenAICompatBackend:
         api_key: str = "EMPTY",
         client: Any | None = None,
         timeout_s: float = 180,
+        async_client: Any | None = None,
     ) -> None:
         # The timeout covers vLLM's first request after start-up, when it compiles CUDA graphs.
         self.name = name
         self.model = model
         self._base_url = base_url
         self._client = client or OpenAI(base_url=base_url, api_key=api_key, timeout=timeout_s, max_retries=2)
+        self._async_client = async_client
+        self._async_args = {"base_url": base_url, "api_key": api_key, "timeout": timeout_s, "max_retries": 2}
+
+    @property
+    def aclient(self):
+        """Created on first use, inside the server's event loop (async HTTP clients belong to one loop)."""
+        if self._async_client is None:
+            self._async_client = AsyncOpenAI(**self._async_args)
+        return self._async_client
 
     def _messages(self, system: str, messages: list[Message]) -> list[dict]:
         return [{"role": "system", "content": system}] + [
@@ -122,6 +132,57 @@ class OpenAICompatBackend:
             latency_s=time.perf_counter() - start,
             stop_reason=stop,
             reasoning="".join(thinking),
+        )
+
+
+    async def agenerate(
+        self, system: str, messages: list[Message], *, max_tokens: int, temperature: float
+    ) -> LLMResult:
+        start = time.perf_counter()
+        try:
+            r = await self.aclient.chat.completions.create(
+                model=self.model, messages=self._messages(system, messages), max_tokens=max_tokens,
+                temperature=temperature,
+            )
+        except openai.OpenAIError as e:
+            raise self._error(e) from e
+        return LLMResult(
+            text=r.choices[0].message.content or "", model=self.model, input_tokens=r.usage.prompt_tokens,
+            output_tokens=r.usage.completion_tokens, latency_s=time.perf_counter() - start,
+            stop_reason=r.choices[0].finish_reason or "", reasoning=_reasoning(r.choices[0].message),
+        )
+
+    async def astream(
+        self, system: str, messages: list[Message], *, max_tokens: int, temperature: float
+    ) -> AsyncIterator[str | LLMResult]:
+        start = time.perf_counter()
+        parts: list[str] = []
+        thinking: list[str] = []
+        input_tokens = output_tokens = 0
+        stop = ""
+        try:
+            chunks = await self.aclient.chat.completions.create(
+                model=self.model, messages=self._messages(system, messages), max_tokens=max_tokens,
+                temperature=temperature, stream=True, stream_options={"include_usage": True},
+            )
+            async for chunk in chunks:
+                if chunk.choices:
+                    choice = chunk.choices[0]
+                    if piece := _reasoning(choice.delta):
+                        thinking.append(piece)
+                    if choice.delta.content:
+                        parts.append(choice.delta.content)
+                        yield choice.delta.content
+                    if choice.finish_reason:
+                        stop = choice.finish_reason
+                if chunk.usage:
+                    input_tokens = chunk.usage.prompt_tokens
+                    output_tokens = chunk.usage.completion_tokens
+        except openai.OpenAIError as e:
+            raise self._error(e) from e
+        yield LLMResult(
+            text="".join(parts), model=self.model, input_tokens=input_tokens, output_tokens=output_tokens,
+            latency_s=time.perf_counter() - start, stop_reason=stop, reasoning="".join(thinking),
         )
 
 

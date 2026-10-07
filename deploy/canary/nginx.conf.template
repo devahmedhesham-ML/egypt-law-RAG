@@ -1,0 +1,24 @@
+# Canary split: nginx sends each request to stable or canary in proportion to the weights.
+# set_weights.sh renders nginx.conf from this template; max_fails takes a dead backend out of rotation.
+events {}
+
+http {
+    upstream rag_api {
+        server api-stable:8000 weight=${STABLE_WEIGHT} max_fails=2 fail_timeout=10s;
+        server api-canary:8000 weight=${CANARY_WEIGHT} max_fails=2 fail_timeout=10s;
+    }
+
+    log_format canary '$remote_addr "$request" $status $request_time upstream=$upstream_addr '
+                      'release=$upstream_http_x_release';
+    access_log /dev/stdout canary;
+
+    server {
+        listen 8080;
+        location / {
+            proxy_pass http://rag_api;
+            proxy_read_timeout 300s;
+            proxy_buffering off;                  # keep /ask/stream streaming through the proxy
+            proxy_next_upstream error timeout http_502 http_503;
+        }
+    }
+}

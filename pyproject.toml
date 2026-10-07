@@ -17,3 +17,23 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["data", "docs", "mlruns", "*.ipynb"]
+
+[tool.ruff.lint]
+# E/W style, F real bugs, I import order, BLE blind `except` (allowed where marked `# noqa: BLE001`)
+select = ["E", "F", "W", "I", "BLE"]
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 140  # code targets 120 (line-length); lint allows occasional longer lines up to 140
+
+[tool.ruff.lint.per-file-ignores]
+# prose and data: the generated report's text and the evaluation questions read better unwrapped
+"src/rag/experiments/report.py" = ["E501"]
+"eval/build_questions.py" = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["rag"]

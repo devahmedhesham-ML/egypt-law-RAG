@@ -108,8 +108,8 @@ def config() -> dict:
     params = load_llm_params()
     return {
         "backends": {
-            "bedrock": {"label": "Bedrock", "model": params["bedrock"]["model"]},
-            "vllm": {"label": "vLLM", "model": params["vllm"]["model"]},
+            "vllm": {"label": "vLLM (main)", "model": params["vllm"]["model"]},
+            "bedrock": {"label": "Bedrock (optional)", "model": params["bedrock"]["model"]},
         },
         "default_backend": params["backend"],
         "temperature": params["temperature"],

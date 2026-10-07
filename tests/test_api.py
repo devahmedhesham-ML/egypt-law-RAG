@@ -29,14 +29,29 @@ class Completions:
         return NS(choices=[NS(message=message, finish_reason="stop")], usage=NS(prompt_tokens=50, completion_tokens=9))
 
 
+class AsyncCompletions(Completions):
+    async def create(self, **req):
+        self.calls.append(req)
+        if not req.get("stream"):
+            message = NS(content=self.text, model_extra={})
+            return NS(choices=[NS(message=message, finish_reason="stop")],
+                      usage=NS(prompt_tokens=50, completion_tokens=9))
+
+        async def chunks():
+            for piece in (self.text[:10], self.text[10:]):
+                yield NS(choices=[NS(delta=NS(content=piece, model_extra={}), finish_reason=None)], usage=None)
+            yield NS(choices=[], usage=NS(prompt_tokens=50, completion_tokens=9))
+        return chunks()
+
+
 def make_client(text="هبة الأموال المستقبلة باطلة [Article 492]، وانظر [Article 999].", *, indexed=1149, backend=None):
-    completions = Completions(text)
-    backend = backend or OpenAICompatBackend("bedrock", "gpt", "http://x/v1",
-                                             client=NS(chat=NS(completions=completions)))
+    completions = AsyncCompletions(text)
+    backend = backend or OpenAICompatBackend("vllm", "qwen", "http://x/v1", client=NS(chat=NS(completions=completions)),
+                                             async_client=NS(chat=NS(completions=completions)))
     retriever = Retriever(encode=lambda q: np.ones((1, 4), dtype=np.float32),
                           searcher=lambda v, k: [{"article_number": 492, "score": 0.75},
                                                  {"article_number": 487, "score": 0.56}][:k])
-    pipeline = Pipeline(retriever=retriever, articles=ARTICLES, backend=backend, backend_name="bedrock")
+    pipeline = Pipeline(retriever=retriever, articles=ARTICLES, backend=backend, backend_name="vllm")
     pipeline.documents_indexed = lambda: indexed
     return TestClient(create_app(pipeline, warm_up=False)), completions
 
@@ -81,11 +96,32 @@ def test_llm_failure_is_a_503_with_the_reason():
     from rag.llm import LLMError
 
     class Down:
-        name, model = "bedrock", "gpt"
+        name, model = "vllm", "qwen"
 
-        def generate(self, *a, **kw):
-            raise LLMError("bedrock error on gpt: invalid or expired Bedrock_API_key")
+        async def agenerate(self, *a, **kw):
+            raise LLMError("vllm: server not reachable at http://localhost:8001/v1 (is `vllm serve` running?)")
 
     client, _ = make_client(backend=Down())
     res = client.post("/ask", json={"question": "What is a gift?"})
-    assert res.status_code == 503 and "expired Bedrock_API_key" in res.json()["detail"]
+    assert res.status_code == 503 and "vllm serve" in res.json()["detail"]
+
+
+def test_stream_sends_tokens_then_sources():
+    client, completions = make_client()
+    with client.stream("POST", "/ask/stream", json={"question": "ما حكم هبة الأموال المستقبلة؟"}) as res:
+        assert res.status_code == 200 and res.headers["content-type"].startswith("text/plain")
+        pieces = [p for p in res.iter_text() if p]
+    body = "".join(pieces)  # the test client buffers the body; arrival in parts is checked with curl -N
+    assert body.startswith("هبة الأموال") and body.rstrip().endswith("Sources: Article 492")
+    assert completions.calls[0]["stream"] is True
+
+
+def test_stream_rejects_empty_question():
+    client, _ = make_client()
+    assert client.post("/ask/stream", json={"question": " "}).status_code == 422
+
+
+def test_every_response_names_the_release(monkeypatch):
+    monkeypatch.setenv("APP_RELEASE", "canary")
+    client, _ = make_client()
+    assert client.get("/health").headers["X-Release"] == "canary"

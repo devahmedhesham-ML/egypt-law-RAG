@@ -7,7 +7,8 @@ caller has an `answer-question` span open, both nest under it; otherwise they fo
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+import asyncio
+from collections.abc import AsyncIterator, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -114,6 +115,62 @@ def answer_stream(
             gen.update(level="ERROR", status_message=str(e))
             raise
         except GeneratorExit:  # the consumer stopped reading (e.g. the tester pressed Stop)
+            gen.update(level="WARNING", status_message="stopped before the answer finished",
+                       output="".join(parts), completion_start_time=first_token_at)
+            raise
+    if result is not None:
+        yield _finish(result, articles)
+
+
+async def answer_async(
+    backend: LLMBackend,
+    question: str,
+    articles: Sequence[Article],
+    *,
+    max_tokens: int = 1024,
+    temperature: float = 0.0,
+) -> AnswerResult:
+    """answer() for async servers (BentoML, FastAPI): same prompt, tracing and citation check."""
+    user_message = build_user_message(question, articles)
+    with _generation(backend, user_message, articles, max_tokens, temperature) as gen:
+        try:
+            result = await backend.agenerate(SYSTEM_PROMPT, [Message("user", user_message)], max_tokens=max_tokens,
+                                             temperature=temperature)
+        except LLMError as e:
+            gen.update(level="ERROR", status_message=str(e))
+            raise
+        _record(gen, result, None)
+    return _finish(result, articles)
+
+
+async def answer_stream_async(
+    backend: LLMBackend,
+    question: str,
+    articles: Sequence[Article],
+    *,
+    max_tokens: int = 1024,
+    temperature: float = 0.0,
+) -> AsyncIterator[str | AnswerResult]:
+    """answer_stream() for async servers: text deltas, then one AnswerResult."""
+    user_message = build_user_message(question, articles)
+    first_token_at: datetime | None = None
+    result: LLMResult | None = None
+    parts: list[str] = []
+    with _generation(backend, user_message, articles, max_tokens, temperature) as gen:
+        try:
+            async for item in backend.astream(SYSTEM_PROMPT, [Message("user", user_message)], max_tokens=max_tokens,
+                                              temperature=temperature):
+                if isinstance(item, LLMResult):
+                    result = item
+                    _record(gen, item, first_token_at)
+                else:
+                    first_token_at = first_token_at or datetime.now(UTC)
+                    parts.append(item)
+                    yield item
+        except LLMError as e:
+            gen.update(level="ERROR", status_message=str(e))
+            raise
+        except (GeneratorExit, asyncio.CancelledError):  # the client went away
             gen.update(level="WARNING", status_message="stopped before the answer finished",
                        output="".join(parts), completion_start_time=first_token_at)
             raise

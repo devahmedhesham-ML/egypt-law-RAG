@@ -1,7 +1,38 @@
-# docker compose up --build  →  http://localhost:8000/health and POST /ask
-# The LLM is Bedrock by default (Bedrock_API_key in .env). For a vLLM server on the host
-# (scripts/serve_vllm.sh, port 8001): LLM_BACKEND=vllm docker compose up
+# docker compose up --build  →  vLLM (Qwen2.5-7B-Instruct-AWQ on the GPU) + the API on http://localhost:8000
+#
+# Needs an NVIDIA GPU with ≥ 16 GB and the NVIDIA container runtime (Docker Desktop on Windows/WSL has it).
+# The first start downloads the model (~5.5 GB) into the hf-cache volume; vLLM is ready ~1–2 min after.
+# Variants:
+#   vLLM already running on the host:  VLLM_BASE_URL=http://host.docker.internal:8001/v1 docker compose up api
+#   no GPU (optional Bedrock backend): LLM_BACKEND=bedrock docker compose up api   (Bedrock_API_key in .env)
 services:
+  vllm:
+    image: vllm/vllm-openai:v0.30.0          # same vLLM version as requirements-serve.lock
+    command: >-
+      --model Qwen/Qwen2.5-7B-Instruct-AWQ --port 8001
+      --gpu-memory-utilization 0.60 --max-model-len 8192
+    environment:
+      VLLM_USE_FLASHINFER_SAMPLER: "0"       # same flags as scripts/serve_vllm.sh
+    volumes:
+      - ${HF_CACHE:-hf-cache}:/root/.cache/huggingface
+    ipc: host
+    ports:
+      - "8001:8001"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/v1/models', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 300s
+      retries: 5
+    restart: unless-stopped
+
   api:
     build:
       context: .
@@ -12,10 +43,17 @@ services:
       - "8000:8000"
     env_file:
       - path: .env
-        required: false        # without it /health works and /ask explains the missing key
+        required: false                      # without it: no tracing, no Bedrock; vLLM needs no key
     environment:
-      LLM_BACKEND: ${LLM_BACKEND:-bedrock}
-      VLLM_BASE_URL: http://host.docker.internal:8001/v1
+      LLM_BACKEND: ${LLM_BACKEND:-vllm}
+      VLLM_BASE_URL: ${VLLM_BASE_URL:-http://vllm:8001/v1}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      vllm:
+        condition: service_started
+        required: false                      # `docker compose up api` alone works (host vLLM or Bedrock)
     restart: unless-stopped
+
+volumes:
+  hf-cache:

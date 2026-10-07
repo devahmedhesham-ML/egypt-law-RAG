@@ -1,8 +1,8 @@
 llm:
-  backend: bedrock         # bedrock | vllm
+  backend: vllm            # vllm (main: Qwen2.5-7B-Instruct, self-hosted) | bedrock (optional extra)
   temperature: 0.0         # deterministic, so backends and runs are comparable
   max_tokens: 1024
-  bedrock:                 # Bedrock's OpenAI-compatible endpoint, key: Bedrock_API_key in .env
+  bedrock:                 # optional: Bedrock's OpenAI-compatible endpoint, key: Bedrock_API_key in .env
     model: openai.gpt-oss-120b
     base_url: https://bedrock-mantle.eu-north-1.api.aws/v1   # overridden by OPENAI_BASE_URL
   vllm:
@@ -11,6 +11,13 @@ llm:
 
 retrieval:
   top_k: 5                 # articles sent to the model per question (API, evaluation)
+
+evaluation:                # RAGAS faithfulness (rag.evaluation): experiments and the CI quality gate
+  answer_backend: vllm     # the model under test: the production model
+  judge_backend: vllm      # RAGAS judge; bedrock is optional (--judge-backend bedrock)
+  concurrency: 8           # parallel answer + judge requests
+  gate_min_faithfulness: 0.75   # CI fails below this (handbook R06)
+  gate_questions: ci       # questions with "ci": true in eval/questions.jsonl (20)
 
 corpus:
   pdf: data/raw/egyptian_civil_code.pdf

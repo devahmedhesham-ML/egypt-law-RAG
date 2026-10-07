@@ -67,7 +67,7 @@ const state = {
   selected: new Set(),
   stages: [],
   stageById: new Map(),
-  backend: 'bedrock',
+  backend: 'vllm', // replaced by the server's default_backend once /api/config loads
   feedback: [],
   feedbackFilter: 'all',
   retrieve: false, // true once the index exists: each question searches it for its context
@@ -846,7 +846,7 @@ function mockEvaluation() {
     h('table', { class: 'summary-table' },
       h('thead', {}, h('tr', {}, h('th', {}, 'Run'), metrics.map((m) => h('th', {}, m)))),
       h('tbody', {},
-        ['Bedrock · gpt-oss-120b', 'vLLM · official AWQ', 'vLLM · own AWQ (Arabic calibration)'].map((r) =>
+        ['vLLM · official AWQ (main)', 'vLLM · own AWQ (Arabic calibration)', 'Bedrock · gpt-oss-120b (optional)'].map((r) =>
           h('tr', {}, h('td', {}, r), metrics.map(() => h('td', {}, '—')))))));
 }
 
@@ -883,7 +883,7 @@ const PLANNED = {
     lede: 'RAGAS scores on a fixed question set, per backend and per experiment.',
     will: [
       'Faithfulness, answer relevancy, context precision and recall on 50+ questions',
-      'Bedrock, the official AWQ build and our own AWQ build side by side',
+      'The official AWQ build, our own AWQ build and (optionally) Bedrock side by side',
       'Drill into the questions that fail',
     ],
     needs: ['Retrieval (the scores need retrieved contexts)', 'A 50+ question evaluation set in Arabic and English', 'TASKS.md: RAGAS, MLflow'],

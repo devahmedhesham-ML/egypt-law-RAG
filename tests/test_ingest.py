@@ -183,3 +183,56 @@ def test_searching_never_modifies_the_tracked_index(tmp_path):
     assert search(tmp_path / "idx", "col", vectors[:1], k=1)[0][0]["article_number"] == 1
     assert digest() == before  # DVC would otherwise see a changed index after every search
     assert index_count(tmp_path / "missing", "col") is None
+
+
+def test_ensure_index_prefers_local_then_pull_then_build():
+    from rag.ingest.ensure import ensure_index
+
+    def scenario(states, results):
+        """states: successive index_status() answers; results: what each command returns."""
+        calls, states, results = [], iter(states), dict(results)
+
+        def run(cmd):
+            calls.append(" ".join(cmd[1:]))
+            return results.get(" ".join(cmd[1:]), True)
+
+        source = ensure_index(log=lambda m: None, status=lambda: next(states), run=run)
+        return source, calls
+
+    assert scenario([(True, "ok")], {}) == ("local", [])
+    assert scenario([(False, "none"), (True, "ok")], {}) == ("pulled", ["-m dvc pull build_corpus index"])
+    # pull fails (no re-check), the corpus exists, the build succeeds and is checked once
+    source, calls = scenario([(False, "none"), (True, "ok")], {"-m dvc pull build_corpus index": False})
+    assert source == "built" and calls[-1] == "-m rag.ingest --yes"
+    source, _ = scenario([(False, "none")], {"-m dvc pull build_corpus index": False, "-m rag.ingest --yes": False})
+    assert source is None
+
+
+def test_batch_reindex_adds_skips_and_replaces(tmp_path):
+    import json as _json
+
+    from rag.ingest.batch import batch_reindex, validate
+    from rag.ingest.chunks import build_chunks
+
+    cfg = {"collection": "civil_code", "model": "test/model", "normalize_arabic": False}
+    chunks = build_chunks([A44])
+    write_index(tmp_path / "idx", "civil_code__model", chunks, np.ones((1, 4), dtype=np.float32), {"m": "x"})
+    corpus = tmp_path / "articles.json"
+    corpus.write_text(_json.dumps([A44]), encoding="utf-8")
+    calls = []
+
+    def encode(texts):
+        calls.append(len(texts))
+        return np.ones((len(texts), 4), dtype=np.float32)
+
+    new = {**A44, "article_number": 1150, "text_en": "Electronic signatures are valid.", "citation": "Test, Article 1150"}
+    assert validate([new]) == [] and validate([{"article_number": "x"}])
+    r = batch_reindex([A44, new], tmp_path / "idx", corpus, encode=encode, cfg=cfg)
+    assert (r.added, r.changed, r.unchanged) == (["art-1150"], [], ["art-0044"]) and r.count_after == 2
+    assert calls == [1]  # only the new chunk was embedded
+    assert [a["article_number"] for a in _json.loads(corpus.read_text(encoding="utf-8"))] == [44, 1150]
+    again = batch_reindex([new], tmp_path / "idx", corpus, encode=encode, cfg=cfg)
+    assert again.unchanged == ["art-1150"] and calls == [1]  # idempotent
+    amended = {**new, "text_en": "Electronic signatures are valid as evidence."}
+    changed = batch_reindex([amended], tmp_path / "idx", corpus, encode=encode, cfg=cfg)
+    assert changed.changed == ["art-1150"] and changed.count_after == 2 and calls == [1, 1]

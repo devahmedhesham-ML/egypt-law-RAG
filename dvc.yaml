@@ -18,7 +18,10 @@ stages:
     cmd: python -m rag.ingest --yes  # the build's warnings are recorded in corpus_report.json
     deps:
       - data/processed/articles.json
-      - src/rag/ingest
+      - src/rag/ingest/__main__.py   # the files that shape the index (not batch.py / ensure.py helpers)
+      - src/rag/ingest/chunks.py
+      - src/rag/ingest/embed.py
+      - src/rag/ingest/store.py
       - src/rag/corpus/normalize.py
       - src/rag/corpus/hierarchy.py
     params:

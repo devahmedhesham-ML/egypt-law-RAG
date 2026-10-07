@@ -65,11 +65,26 @@ stages:
       md5: cd3367536e4aba678d7921268d01447a
       size: 464
       isexec: true
-    - path: src/rag/ingest
+    - path: src/rag/ingest/__main__.py
       hash: md5
-      md5: 6a48d482a5a690d526b7d6659544cff0.dir
-      size: 106881
-      nfiles: 10
+      md5: 3f89b1ea7174f274be941c51bb5a5ca2
+      size: 13727
+      isexec: true
+    - path: src/rag/ingest/chunks.py
+      hash: md5
+      md5: 93bfe368574d6360c9fa0a8bbd64bfd4
+      size: 6881
+      isexec: true
+    - path: src/rag/ingest/embed.py
+      hash: md5
+      md5: d82d60066aabed35357083ac11d22f1e
+      size: 18573
+      isexec: true
+    - path: src/rag/ingest/store.py
+      hash: md5
+      md5: b30ae2dcbe004c40229a187b2837188a
+      size: 3522
+      isexec: true
     params:
       params.yaml:
         ingest:

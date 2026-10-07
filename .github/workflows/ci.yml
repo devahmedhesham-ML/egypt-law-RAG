@@ -127,7 +127,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: RAGAS faithfulness ≥ 0.75 on the 20 CI questions (Qwen2.5 on vLLM)
-        run: scripts/ci_gate.sh
+        run: bash scripts/ci_gate.sh
       - name: Upload the gate report
         if: always()
         uses: actions/upload-artifact@v4

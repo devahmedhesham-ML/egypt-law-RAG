@@ -14,9 +14,11 @@ RUN dvc config --local core.no_scm true \
 
 # --- 2) runtime: CPU-only dependencies and the embedding model baked in (runs offline)
 FROM python:3.12-slim AS runtime
-COPY --from=ghcr.io/astral-sh/uv:0.12 /uv /usr/local/bin/uv
 COPY requirements-api.lock /tmp/requirements-api.lock
-RUN uv pip install --system --no-cache --torch-backend cpu -r /tmp/requirements-api.lock
+# uv is mounted for the install only, and torch's own test suite is dropped: neither is needed at runtime.
+RUN --mount=from=ghcr.io/astral-sh/uv:0.12,source=/uv,target=/usr/local/bin/uv \
+    uv pip install --system --no-cache --torch-backend cpu -r /tmp/requirements-api.lock \
+ && rm -rf /usr/local/lib/python3.12/site-packages/torch/test
 
 ARG EMBED_MODEL=Qwen/Qwen3-Embedding-0.6B
 ARG EMBED_REVISION=97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3

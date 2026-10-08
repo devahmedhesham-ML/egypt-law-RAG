@@ -66,8 +66,8 @@ The API, BentoML, the experiments and the CI gate all go through the same code p
 |---|---|
 | Docker | Docker Engine + Compose **v2.24 or newer** (Linux), or Docker Desktop with the WSL 2 backend (Windows) |
 | GPU | NVIDIA GPU, **16 GB VRAM recommended** (tested on an RTX 4070 Ti SUPER 16 GB; vLLM reserves 60% of it) |
-| GPU in Docker | NVIDIA driver; on Linux also the NVIDIA Container Toolkit. Check: `docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi` must list your GPU |
-| Disk | about **30 GB free** (vLLM image 21.6 GB, API image 2.8 GB, model 5.6 GB) |
+| GPU in Docker | NVIDIA driver **580 or newer** (CUDA 13); on Linux also the NVIDIA Container Toolkit. Check: `docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi` must list your GPU |
+| Disk | about **20 GB free** (vLLM image 8.0 GB, API image 2.6 GB, model 5.6 GB): see [What's in the images](#whats-in-the-images) |
 | Memory | 16 GB RAM (the two containers use ~5 GB) |
 | Network | only for the first start (images, corpus and model downloads); no API keys needed |
 
@@ -84,8 +84,8 @@ docker compose up --build    # vLLM (Qwen2.5-7B on the GPU) + the API on http://
 1. builds the API image (~8 min): installs CPU-only dependencies, pulls the corpus and Chroma index pinned in
    `dvc.lock` from the public S3 bucket (no AWS account or DVC install needed) and bakes in the embedding model.
    To skip the build, use the image CI publishes: see [Use the prebuilt image](#use-the-prebuilt-image);
-2. downloads the official vLLM image (~10 GB; 21.6 GB on disk: CUDA, PyTorch and vLLM's GPU kernels);
-3. downloads Qwen2.5-7B-Instruct-AWQ (~5.5 GB) into the `hf-cache` volume, kept for later starts;
+2. downloads the project's vLLM image (~3.9 GB; 8.0 GB on disk: vLLM, PyTorch and its CUDA libraries, nothing else);
+3. downloads Qwen2.5-7B-Instruct-AWQ (~5.6 GB) into the `hf-cache` volume, kept for later starts;
 4. vLLM loads the model (~80–90 s); the API reports healthy a few seconds later.
 
 **It is ready when** `docker compose ps` shows both services `healthy` and `curl localhost:8000/health` returns
@@ -130,8 +130,30 @@ docker compose logs -f api           # requests and errors
 docker compose restart api           # restart the API only
 docker compose down                  # stop and remove containers; the downloaded model stays in the hf-cache volume
 docker compose down -v               # also delete the model volume (downloaded again next time)
-docker rmi vllm/vllm-openai:v0.30.0 egypt-law-rag-api:latest   # reclaim ~24 GB of images
+docker rmi ghcr.io/devahmedhesham-ml/egypt-law-rag-vllm:0.30.0 egypt-law-rag-api:latest   # reclaim ~11 GB of images
 ```
+
+### What's in the images
+
+Only what the system needs to answer: no CUDA toolkit, no kernels for other GPUs, no multi-node libraries.
+
+| Image | Download | On disk | Contents |
+|---|---|---|---|
+| `ghcr.io/devahmedhesham-ml/egypt-law-rag-vllm:0.30.0` ([Dockerfile.vllm](Dockerfile.vllm)) | ~3.9 GB | 8.0 GB | Python 3.12 slim; gcc (Triton compiles its kernel launcher with it; vLLM fails to start without it); `requirements-serve.lock`: vLLM 0.30.0, PyTorch 2.13 with its CUDA 13 libraries (cuBLAS, cuDNN, NCCL, …), Triton. The video/audio packages vLLM pulls in are removed (a text model never imports them) |
+| `egypt-law-rag-api` ([Dockerfile](Dockerfile)) | ~1.4 GB | 2.6 GB | Python 3.12 slim; CPU-only PyTorch, sentence-transformers, Chroma, FastAPI; Qwen3-Embedding-0.6B (1.2 GB, so the API starts offline); the corpus and Chroma index (26 MB) |
+| `hf-cache` volume | 5.6 GB | 5.6 GB | Qwen2.5-7B-Instruct-AWQ (4-bit weights), downloaded on the first start. Outside the image, so a new image does not download the model again |
+
+**Why not the official `vllm/vllm-openai` image:** it is 21.6 GB (8.7 GB to download) because it is built for every
+NVIDIA GPU and for serving across machines. Measured inside it: 6.4 GB of FlashInfer kernels for Blackwell data-center
+GPUs, the 2.8 GB CUDA compiler toolkit, a 1.5 GB kernel cache, 1 GB of multi-node libraries (Mooncake, NIXL, LMCache,
+DeepEP), ffmpeg and OpenCV. None of it runs here: on Ampere/Ada GPUs vLLM uses FlashAttention, and greedy decoding
+does not need FlashInfer's sampler. The project's image installs exactly the environment of `scripts/serve_vllm.sh`.
+On the test machine it gives the same answers, word for word, as the official image did (`scripts/curl_checks.sh`),
+faithfulness 0.79–0.80 on the 20 CI questions (the range measured before; between runs the 7B judge scores one question
+differently) and the same latency at 50 concurrent users as the earlier load test (`/ask` p95 12 s, 0 failures).
+It is tested on an Ada GPU (RTX 4070 Ti SUPER); on a GPU it does not support, `VLLM_IMAGE=vllm/vllm-openai:v0.30.0 docker compose up` uses the
+official image with the same command. CI rebuilds it only when `Dockerfile.vllm` or `requirements-serve.lock` changes
+([.github/workflows/vllm-image.yml](.github/workflows/vllm-image.yml)).
 
 ### Use the prebuilt image
 
@@ -151,6 +173,7 @@ Set these in `.env` (compose reads it if present) or on the command line:
 |---|---|---|
 | `LLM_BACKEND` | `vllm` | `vllm` (main) or `bedrock` (optional) |
 | `API_VLLM_URL` | `http://vllm:8001/v1` | where the API container finds vLLM; a vLLM on the host: `http://host.docker.internal:8001/v1` (`VLLM_BASE_URL` in `.env` is for running outside Docker and is ignored by compose) |
+| `VLLM_IMAGE` | `ghcr.io/devahmedhesham-ml/egypt-law-rag-vllm:0.30.0` | the vLLM server image; `vllm/vllm-openai:v0.30.0` for the official one (21.6 GB) |
 | `HF_CACHE` | `hf-cache` (volume) | where the `vllm` service keeps the model; a host directory keeps it outside Docker |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` | unset | optional tracing; without them tracing is off |
 | `Bedrock_API_key`, `OPENAI_BASE_URL` | unset | only for `LLM_BACKEND=bedrock` |
@@ -177,10 +200,11 @@ LLM_BACKEND=bedrock docker compose up api                                 # no G
 | `/ask` returns 503 `LLM unavailable: vllm: server not reachable` | vLLM is still loading (wait until `docker compose ps` shows it healthy) or stopped (`docker compose logs vllm`) |
 | `/health` returns 503 `unhealthy` | the image has no index; rebuild it (`docker compose build api`) or use the prebuilt image |
 | `port is already allocated` (8000 or 8001) | another server uses the port; stop it, or change the `ports:` mapping in `docker-compose.yml` |
-| the first start takes long | it downloads ~16 GB (vLLM image + model); later starts take ~90 s |
+| the first start takes long | it downloads ~11 GB (vLLM image, API image, model); later starts take ~90 s |
+| vLLM exits with `CUDA driver version is insufficient` | the images use CUDA 13: update the NVIDIA driver to 580 or newer |
 | build fails at `dvc pull` | no access to the public S3 bucket from your network; use the prebuilt image instead |
 | Arabic comes back as `????` in PowerShell | send the question from a file (`--data-binary @examples/ask_ar.json`); the console's display encoding does not affect the answer |
-| Docker Desktop fails after the disk filled up | free space on the drive holding Docker's data (C: on Windows), quit Docker Desktop, run `wsl --shutdown`, start it again; keep ≥ 30 GB free |
+| Docker Desktop fails after the disk filled up | free space on the drive holding Docker's data (C: on Windows), quit Docker Desktop, run `wsl --shutdown`, start it again; keep ≥ 20 GB free |
 
 ## API
 
@@ -202,7 +226,7 @@ Handlers are async: retrieval runs in a worker thread and the call to vLLM is aw
 |---|---|---|---|
 | R01 | Code & packaging | ✅ | `pyproject.toml`, `src/rag/` (`pip install -e .`); 95 tests in `tests/` |
 | R02 | API endpoint | ✅ | [src/rag/api/app.py](src/rag/api/app.py) (async, Pydantic); 422 / health / answers in [reports/curl_checks.md](reports/curl_checks.md) |
-| R03 | Docker | ✅ | [Dockerfile](Dockerfile), [docker-compose.yml](docker-compose.yml), the three commands above; verified with vLLM in compose on 2026-10-08 |
+| R03 | Docker | ✅ | [Dockerfile](Dockerfile), [Dockerfile.vllm](Dockerfile.vllm), [docker-compose.yml](docker-compose.yml), the three commands above; verified with vLLM in compose on 2026-10-08 ([what's in the images](#whats-in-the-images)) |
 | R04 | MLflow tracking | ✅ | 8 runs: [reports/chunking_experiments.md](reports/chunking_experiments.md), [compare screenshot](reports/mlflow_chunking_compare.png); `civil-code-retrieval` with alias `production`: [registry screenshot](reports/mlflow_registry_production.png) |
 | R05 | DVC | ✅ | [dvc.yaml](dvc.yaml), [dvc.lock](dvc.lock): `git checkout` + `dvc pull` + `dvc repro` (public remote) |
 | R06 | GitHub Actions CI/CD | ✅ | [.github/workflows/ci.yml](.github/workflows/ci.yml); PR #1 merged with all checks green; image on GHCR; quality gate: [reports/faithfulness_gate.md](reports/faithfulness_gate.md) |
@@ -252,6 +276,7 @@ deploy/canary/   nginx canary rollout
 loadtest/        Locust load test
 examples/        request bodies for curl.exe / PowerShell
 scripts/         vLLM server, smoke test, CI gate, runner setup
+Dockerfile       API image (CPU) · Dockerfile.vllm: vLLM image (GPU) · docker-compose.yml runs both
 docs/            corpus build plan, evaluation dataset
 data/            DVC-tracked PDF, corpus and index (dvc pull)
 ```
@@ -458,6 +483,11 @@ canary crash with no failed request): [reports/canary_test.md](reports/canary_te
    labelled `gpu` (`scripts/setup_gpu_runner.sh`, then `~/actions-runner/run-gpu.sh`), only when the repository variable
    `GPU_RUNNER` is `true`, and never for pull requests from forks. Last result: [reports/faithfulness_gate.md](reports/faithfulness_gate.md).
 
+[.github/workflows/vllm-image.yml](.github/workflows/vllm-image.yml) builds the vLLM image from
+[Dockerfile.vllm](Dockerfile.vllm), checks that vLLM and PyTorch import, and pushes it to GHCR
+(`ghcr.io/devahmedhesham-ml/egypt-law-rag-vllm:<vLLM version>`), only when `Dockerfile.vllm` or
+`requirements-serve.lock` changes (or on demand).
+
 ## Tracing (Langfuse)
 
 Set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL` in `.env` (see `.env.example`); without them, or
@@ -519,4 +549,4 @@ dvc push
 | 2026-09-29 | Production API (`/ask`, `/health`, 422) and Docker image; evaluation set; chunking strategies and 8 MLflow runs |
 | 2026-09-30 | Experiment report with cost, speed and hardware; evaluation dataset documented |
 | 2026-10-07 | Qwen2.5 on vLLM as the main model; async API with streaming; faithfulness quality gate; Model Registry; BentoML; Locust; batch re-indexing; canary; CI/CD (PR #1 merged green) |
-| 2026-10-08 | `docker compose up` with vLLM and the canary rollout verified end to end |
+| 2026-10-08 | `docker compose up` with vLLM and the canary rollout verified end to end; the project's own vLLM image (8.0 GB instead of 21.6 GB), same answers and latency, faithfulness 0.79–0.80 |

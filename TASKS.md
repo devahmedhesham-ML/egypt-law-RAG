@@ -15,6 +15,7 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 - [ ] Arabic spot-check of 20 articles (Corpus view → Random 20)
 - [ ] Peer review of another student's project (R09)
 - [ ] Delete the unused IAM access keys from `.env` and deactivate them in AWS IAM
+- [ ] Make the GHCR package `egypt-law-rag-vllm` public after its first push (package settings → visibility)
 
 ## Done: R04–R07 (vLLM main model, CI/CD, BentoML serving)
 - [x] Qwen2.5-7B-Instruct-AWQ on vLLM is the main model everywhere (params, API, Docker, console, evaluation); Bedrock is optional
@@ -31,12 +32,13 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 - [x] CI workflow: lint → test → index → Docker build/push to GHCR → faithfulness gate on a self-hosted GPU runner; PR #1 green (gate 0.802 in CI, index pulled from DVC) and merged; image public at `ghcr.io/devahmedhesham-ml/egypt-law-rag-api`
 - [x] Quality gate passes locally: faithfulness 0.787 ≥ 0.75 on the 20 CI questions
 - [x] `docker-compose.yml` starts vLLM + API: verified (both healthy in 80 s; curl checks pass with Qwen2.5 in the container, streaming works)
+- [x] Own vLLM image (`Dockerfile.vllm`, 8.0 GB instead of the official 21.6 GB): only `requirements-serve.lock`, gcc kept (Triton needs it), video/audio packages removed; same curl answers, faithfulness 0.804 / 0.792, Locust p95 12 s; built and pushed by `.github/workflows/vllm-image.yml`
 
 ## Done: API, Docker, evaluation set, MLflow chunking experiments (R02–R04)
 - [x] vLLM moved to port 8001 so the API owns 8000
 - [x] `rag.pipeline`: one retrieve → answer → check-citations path shared by the API, evaluation and (next) BentoML
 - [x] `python -m rag.api`: `/ask` + `/health`, 422 on empty/blank/missing questions, 503 with the reason when the LLM or index is down
-- [x] Docker image (2.8 GB, CPU): corpus + Chroma index pulled from S3 at build, embedding model baked in, runs offline; verified from a fresh clone
+- [x] Docker image (2.6 GB, CPU): corpus + Chroma index pulled from S3 at build, embedding model baked in, runs offline; verified from a fresh clone
 - [x] `eval/questions.jsonl`: 62 questions (28 topics × AR/EN, 2 by number, 4 out of scope), consistency-tested
 - [x] Chunking strategies `article` (default) / `window` (size, overlap) / `per_language`; retrieval maps chunks back to articles
 - [x] `python -m rag.experiments.chunking --faithfulness`: 8 MLflow runs (strategy × chunk_size/overlap × embedding model), retrieval metrics + RAGAS faithfulness judged by Bedrock

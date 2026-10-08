@@ -1,0 +1,33 @@
+# syntax=docker/dockerfile:1.7
+# vLLM server for Qwen2.5-7B-Instruct-AWQ, with only what it needs: the packages pinned in requirements-serve.lock
+# (the same environment as scripts/serve_vllm.sh). 8.0 GB unpacked; the official vllm/vllm-openai image is 21.6 GB,
+# mostly kernels for other GPUs, the CUDA compiler toolkit and multi-node libraries we never use.
+# The model is not in the image: it downloads once into the hf-cache volume (docker-compose.yml).
+# Build: docker build -f Dockerfile.vllm -t egypt-law-rag-vllm:0.30.0 .
+
+# No CUDA base image: the torch wheels bring the CUDA libraries, and the NVIDIA runtime mounts the driver.
+FROM python:3.12-slim
+
+# Triton compiles a small C launcher the first time it runs a kernel: without gcc, vLLM fails at start
+# ("Failed to find C compiler").
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends gcc libc6-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+# vLLM requires the video/audio packages, but a text model never imports them (verified: it serves without them),
+# so they are removed in the same layer (250 MB). The uv cache mount only speeds up local rebuilds.
+COPY requirements-serve.lock /tmp/requirements-serve.lock
+RUN --mount=from=ghcr.io/astral-sh/uv:0.12,source=/uv,target=/usr/local/bin/uv \
+    --mount=type=cache,target=/root/.cache/uv \
+    UV_LINK_MODE=copy uv pip install --system -r /tmp/requirements-serve.lock \
+ && uv pip uninstall --system opencv-python-headless pynvvideocodec torchaudio torchcodec \
+ && rm -rf /usr/local/lib/python3.12/site-packages/torch/test /tmp/requirements-serve.lock \
+ && find /usr/local/lib/python3.12 -name __pycache__ -prune -exec rm -rf {} +
+
+# FlashInfer's sampler needs nvcc to JIT-compile; we decode greedily, so PyTorch's sampler costs nothing.
+ENV VLLM_USE_FLASHINFER_SAMPLER=0 \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    PYTHONUNBUFFERED=1
+EXPOSE 8001
+ENTRYPOINT ["vllm", "serve"]

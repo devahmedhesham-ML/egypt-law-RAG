@@ -6,6 +6,7 @@
 !dvc.lock
 !.dvc/config
 !requirements-api.lock
+!requirements-serve.lock
 !src/
 **/__pycache__
 **/*.pyc

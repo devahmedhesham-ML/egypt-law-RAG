@@ -15,7 +15,6 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 - [ ] Arabic spot-check of 20 articles (Corpus view → Random 20)
 - [ ] Peer review of another student's project (R09)
 - [ ] Delete the unused IAM access keys from `.env` and deactivate them in AWS IAM
-- [ ] Make the GHCR package `egypt-law-rag-vllm` public after its first push (package settings → visibility)
 
 ## Done: R04–R07 (vLLM main model, CI/CD, BentoML serving)
 - [x] Qwen2.5-7B-Instruct-AWQ on vLLM is the main model everywhere (params, API, Docker, console, evaluation); Bedrock is optional
@@ -32,7 +31,7 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 - [x] CI workflow: lint → test → index → Docker build/push to GHCR → faithfulness gate on a self-hosted GPU runner; PR #1 green (gate 0.802 in CI, index pulled from DVC) and merged; image public at `ghcr.io/devahmedhesham-ml/egypt-law-rag-api`
 - [x] Quality gate passes locally: faithfulness 0.787 ≥ 0.75 on the 20 CI questions
 - [x] `docker-compose.yml` starts vLLM + API: verified (both healthy in 80 s; curl checks pass with Qwen2.5 in the container, streaming works)
-- [x] Own vLLM image (`Dockerfile.vllm`, 8.0 GB instead of the official 21.6 GB): only `requirements-serve.lock`, gcc kept (Triton needs it), video/audio packages removed; same curl answers, faithfulness 0.804 / 0.792, Locust p95 12 s; built and pushed by `.github/workflows/vllm-image.yml`
+- [x] Own vLLM image (`Dockerfile.vllm`, 8.0 GB instead of the official 21.6 GB): only `requirements-serve.lock`, gcc kept (Triton needs it), video/audio packages removed; same curl answers, faithfulness 0.804 / 0.792, Locust p95 12 s; built and pushed by `.github/workflows/vllm-image.yml` (public at `ghcr.io/devahmedhesham-ml/egypt-law-rag-vllm:0.30.0`, 3.89 GB download; CI gate 0.804 against it); fresh clone + `docker compose up --build` verified with the GHCR image (curl answers identical)
 
 ## Done: API, Docker, evaluation set, MLflow chunking experiments (R02–R04)
 - [x] vLLM moved to port 8001 so the API owns 8000

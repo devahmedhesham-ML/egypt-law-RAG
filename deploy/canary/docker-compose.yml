@@ -18,7 +18,7 @@ services:
     environment:
       APP_RELEASE: ${STABLE_RELEASE:-stable}
       LLM_BACKEND: ${LLM_BACKEND:-vllm}
-      VLLM_BASE_URL: ${VLLM_BASE_URL:-http://host.docker.internal:8001/v1}
+      VLLM_BASE_URL: ${API_VLLM_URL:-http://host.docker.internal:8001/v1}
       LANGFUSE_TRACING_ENVIRONMENT: canary
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -31,7 +31,7 @@ services:
     environment:
       APP_RELEASE: ${CANARY_RELEASE:-canary}
       LLM_BACKEND: ${LLM_BACKEND:-vllm}
-      VLLM_BASE_URL: ${VLLM_BASE_URL:-http://host.docker.internal:8001/v1}
+      VLLM_BASE_URL: ${API_VLLM_URL:-http://host.docker.internal:8001/v1}
       LANGFUSE_TRACING_ENVIRONMENT: canary
     extra_hosts:
       - "host.docker.internal:host-gateway"

@@ -3,7 +3,7 @@
 # Needs an NVIDIA GPU with ≥ 16 GB and the NVIDIA container runtime (Docker Desktop on Windows/WSL has it).
 # The first start downloads the model (~5.5 GB) into the hf-cache volume; vLLM is ready ~1–2 min after.
 # Variants:
-#   vLLM already running on the host:  VLLM_BASE_URL=http://host.docker.internal:8001/v1 docker compose up api
+#   vLLM already running on the host:  API_VLLM_URL=http://host.docker.internal:8001/v1 docker compose up api
 #   no GPU (optional Bedrock backend): LLM_BACKEND=bedrock docker compose up api   (Bedrock_API_key in .env)
 services:
   vllm:
@@ -46,7 +46,8 @@ services:
         required: false                      # without it: no tracing, no Bedrock; vLLM needs no key
     environment:
       LLM_BACKEND: ${LLM_BACKEND:-vllm}
-      VLLM_BASE_URL: ${VLLM_BASE_URL:-http://vllm:8001/v1}
+      # Not ${VLLM_BASE_URL}: .env sets that one for running outside Docker (localhost), wrong inside the container.
+      VLLM_BASE_URL: ${API_VLLM_URL:-http://vllm:8001/v1}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

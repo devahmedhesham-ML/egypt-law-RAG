@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: pushgateway      # RAGAS means pushed by rag.evaluation.ragas_eval (job="ragas_eval", label=<run>)
+    honor_labels: true
+    static_configs:
+      - targets: ["pushgateway:9091"]
+  - job_name: vllm             # vLLM's own metrics (tokens/s, requests running/waiting, KV cache use)
+    static_configs:
+      - targets: ["host.docker.internal:8001"]

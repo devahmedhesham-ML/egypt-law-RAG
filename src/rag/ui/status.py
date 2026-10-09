@@ -175,16 +175,21 @@ def _static() -> list[Stage]:
     return [
         Stage("citations", "Generation", "Citation check", WORKING, "Flags any cited article that was not in the context."),
         Stage("streaming", "Generation", "Streaming answers", WORKING, "Token-by-token streaming with usage and latency."),
-        Stage("serve", "Serving", "BentoML /ask", PLANNED,
-              "Production API with streaming. The console talks to its own dev server meanwhile.", "TASKS: Serve"),
+        Stage("serve", "Serving", "BentoML /ask", WORKING,
+              "rag.serving.service: async /ask and streaming /ask_stream on :3000 (bentoml serve)."),
         Stage("feedback", "Observability", "Tester feedback", WORKING,
               f"{feedback_n} ratings recorded in data/feedback/feedback.jsonl."),
-        Stage("ragas", "Evaluation", "RAGAS evaluation", PLANNED,
-              "Faithfulness, answer relevancy, context precision/recall on 50+ questions.", "TASKS: RAGAS"),
-        Stage("awq", "Optimization", "Own AWQ-4bit quantization", PLANNED,
-              "Calibrated on Arabic articles; vLLM serves the official Qwen AWQ build meanwhile.", "TASKS: Optimize"),
+        Stage("ragas", "Evaluation", "RAGAS evaluation (4 metrics)", WORKING,
+              "Faithfulness, answer relevancy, context precision and recall on 58 questions: "
+              "python -m rag.evaluation.ragas_eval (MLflow experiment 'ragas', scores on each Langfuse trace)."),
+        Stage("rerank", "Optimization", "Distilled re-ranker", WORKING,
+              "Qwen3-Reranker-4B distilled into 0.6B (rag.rerank); off by default, retrieval.rerank in params.yaml."),
+        Stage("awq", "Optimization", "AWQ-4bit generative model", WORKING,
+              "vLLM serves Qwen's official AWQ 4-bit build: 5.6 GB of weights instead of ~15 GB at full precision."),
+        Stage("grafana", "Observability", "Grafana panel and faithfulness alert", WORKING,
+              "deploy/monitoring: RAGAS metrics in Grafana (:3001); alert when faithfulness < 0.80."),
         Stage("monitoring", "Observability", "Drift and cost monitoring", PLANNED,
-              "Embedding drift (MMD, domain classifier) and token cost over time.", "TASKS: Monitor"),
+              "Cosine drift of incoming questions and token cost over time (not built)."),
     ]
 
 

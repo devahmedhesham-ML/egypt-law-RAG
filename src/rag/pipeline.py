@@ -9,22 +9,21 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import threading
 from collections.abc import AsyncIterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
-from dotenv import load_dotenv
 from langfuse import propagate_attributes
 
 from rag import tracing
 from rag.llm import AnswerResult, LLMBackend, answer, answer_async, answer_stream_async, get_backend
-from rag.llm.factory import load_llm_params
+from rag.llm.factory import default_backend, load_llm_params
 from rag.retrieval import Retrieval, Retriever
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ENV_FILE = REPO_ROOT / ".env"
 
 
 def load_params() -> dict:
@@ -55,16 +54,24 @@ class Pipeline:
     """Holds the corpus, retriever and LLM backend; everything loads lazily on first use."""
 
     def __init__(self, *, retriever: Retriever | None = None, articles: dict[int, dict] | None = None,
-                 backend: LLMBackend | None = None, backend_name: str | None = None) -> None:
+                 backend: LLMBackend | None = None, backend_name: str | None = None,
+                 rerank: bool | None = None, reranker=None) -> None:
         params = load_params()
         self.top_k: int = params["retrieval"]["top_k"]
+        # Re-ranker: retrieve `rerank_candidates`, re-order them, keep the top k. RAG_RERANK (env) > params.yaml
+        # retrieval.rerank; off by default because the API image is CPU-only (seconds per question there).
+        env = os.environ.get("RAG_RERANK", "").strip().lower()
+        default = env in ("1", "true", "yes") if env else params["retrieval"].get("rerank", False)
+        self.rerank: bool = default if rerank is None else rerank
+        self.rerank_candidates: int = params["retrieval"].get("rerank_candidates", 20)
+        self._reranker = reranker
+        self._reranker_lock = threading.Lock()  # concurrent requests must load it once
         self.llm_params = load_llm_params()
         self._retriever = retriever
         self._articles = articles
         self._backend = backend
-        load_dotenv(ENV_FILE)  # LLM_BACKEND may be set in .env (outside Docker); the real environment still wins
-        # LLM_BACKEND (env or .env) > params.yaml llm.backend
-        self.backend_name = backend_name or os.environ.get("LLM_BACKEND") or self.llm_params["backend"]
+        # LLM_BACKEND (environment or .env) > params.yaml llm.backend
+        self.backend_name = backend_name or default_backend(self.llm_params)
 
     @property
     def retriever(self) -> Retriever:
@@ -88,11 +95,29 @@ class Pipeline:
         """Load the corpus and the embedding model now, so the first question is not slow."""
         _ = self.articles
         self.retriever._load()
+        if self.rerank:
+            _ = self.reranker
+
+    @property
+    def reranker(self):
+        with self._reranker_lock:
+            if self._reranker is None:
+                from rag.rerank import Reranker
+
+                self._reranker = Reranker()
+        return self._reranker
 
     def retrieve(self, question: str, k: int | None = None) -> tuple[Retrieval, list[dict]]:
-        """Top-k hits and the article records sent to the model (hits missing from the corpus are dropped)."""
-        retrieval = self.retriever.retrieve(question, k or self.top_k)
-        context = [self.articles[h.article_number] for h in retrieval.hits if h.article_number in self.articles]
+        """Top-k hits and the article records sent to the model (hits missing from the corpus are dropped).
+        With the re-ranker on, the top `rerank_candidates` are re-ordered by it first."""
+        k = k or self.top_k
+        retrieval = self.retriever.retrieve(question, self.rerank_candidates if self.rerank else k)
+        hits = [h for h in retrieval.hits if h.article_number in self.articles]
+        if self.rerank:
+            hits = self.reranker.rerank(question, hits, self.articles)[:k]
+            retrieval = Retrieval(hits=hits, **{f: getattr(retrieval, f) for f in Retrieval.__dataclass_fields__
+                                                if f != "hits"})
+        context = [self.articles[h.article_number] for h in hits]
         return retrieval, context
 
     @contextmanager

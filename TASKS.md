@@ -109,25 +109,26 @@ Plan: [docs/plans/corpus-build.md](docs/plans/corpus-build.md)
 - [x] Canary rollout config documented in README
 
 ## 6. Optimization (Module 4, p. 66)
-- [ ] Own AWQ-4bit quantization of the generative model (calibrated on Arabic articles)
-- [ ] Re-ranker distillation
-- [ ] RAGAS before vs after optimization
+- [x] AWQ-4bit generative model: the official `Qwen/Qwen2.5-7B-Instruct-AWQ` (5.6 GB instead of ~15 GB); own quantization dropped by decision
+- [x] Re-ranker distillation: Qwen2.5-7B (vLLM, yes/no judge) → Qwen3-Reranker-0.6B on 586 generated questions, test-set comparison in `reports/reranker.md` (Qwen3-Reranker-4B planned as teacher; its download stalled)
+- [x] RAGAS before vs after the re-ranker (`reports/ragas_eval.md`, `reports/ragas_eval_reranker.md`, MLflow `ragas`)
 
 ## 7. Monitoring and observability (Module 5 · R08, pp. 66, 69)
-- [ ] RAGAS on 50+ questions, all 4 metrics logged (faithfulness done on 58 questions for every chunking run; answer relevancy, context precision and recall to add)
-- [ ] RAGAS results stored in MLflow, with the trend visible across sessions (faithfulness is in the chunking runs; no per-session trend yet)
-- [ ] Grafana panel for RAGAS faithfulness; screenshot in README (R08)
-- [ ] Alert: faithfulness < 0.80 triggers a notification; threshold documented (R08)
+- [x] RAGAS on 58 questions, all 4 metrics logged: `python -m rag.evaluation.ragas_eval` (faithfulness 0.813, relevancy 0.594, precision 0.799, recall 0.948)
+- [x] RAGAS results stored in MLflow (experiment `ragas`, one run per evaluation: the trend across sessions)
+- [x] Grafana panel for RAGAS faithfulness; screenshot in README (`reports/grafana_ragas_panel.png`, `deploy/monitoring`)
+- [x] Alert: faithfulness < 0.80 triggers a notification (webhook → alert receiver); tested end to end (`reports/alert_test.md`, `scripts/test_alert.sh`)
 - [x] Langfuse tracing over the whole app: answers, searches, index and corpus builds, citation and tester scores (Langfuse Cloud)
-- [ ] Langfuse **self-hosted** (the handbook asks for it; same keys/env vars, only `LANGFUSE_BASE_URL` changes)
-- [ ] Model prices in Langfuse for `openai.gpt-oss-120b` (Bedrock) so cost shows per trace
-- [ ] RAGAS faithfulness score attached to each Langfuse trace
-- [ ] Cosine embedding drift and token cost tracked
+- [x] Langfuse stays on **Langfuse Cloud** by decision (self-hosting = 6 more containers for no gain; documented in the README)
+- [ ] Model prices in Langfuse for `openai.gpt-oss-120b` (Bedrock) so cost shows per trace (cut for time)
+- [x] RAGAS scores (all four) attached to each evaluated Langfuse trace (57 faithfulness scores on the baseline run's traces)
+- [ ] Cosine embedding drift and token cost tracked (cut for time; listed in the README's limitations)
 
 ## 8. README and architecture (R10)
 - [x] 3-command setup that the reviewer runs without asking anything (compose starts vLLM too, no key needed on a GPU machine; verified)
-- [ ] Architecture diagram covering all 5 sessions
-- [ ] Session changelog
+- [x] Architecture diagram covering all 5 sessions (README, mermaid)
+- [x] Session changelog (README, by module, with the daily log)
+- [x] `LLM_BACKEND` is the one switch for every LLM call: answers, RAGAS judge, gate, experiments, console default, question generation, re-ranker teacher
 
 ## Done outside the handbook list
 - [x] Test console (`python -m rag.ui`): Ask, Compare, Status, Corpus, Retrieval, Traces, feedback log

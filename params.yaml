@@ -11,6 +11,19 @@ llm:
 
 retrieval:
   top_k: 5                 # articles sent to the model per question (API, evaluation)
+  rerank: false            # distilled re-ranker (rag.rerank): re-order rerank_candidates, keep top_k
+  rerank_candidates: 10
+
+rerank:                    # re-ranker distillation (rag.rerank.data, rag.rerank.distill)
+  teacher: Qwen/Qwen3-Reranker-4B   # or `llm`: the LLM backend (Qwen2.5-7B on vLLM, or Bedrock) judging yes/no
+  student: Qwen/Qwen3-Reranker-0.6B    # the base the student starts from
+  model_dir: data/rerank/student       # the distilled student; the pipeline loads it (base student if missing)
+  articles: 300            # training articles, sampled from in-force articles not used by the evaluation set
+  candidates: 10           # retrieved candidates per question, scored by the teacher
+  max_doc_tokens: 384
+  epochs: 2
+  lr: 1.0e-5
+  seed: 13
 
 evaluation:                # RAGAS faithfulness (rag.evaluation): experiments and the CI quality gate
   answer_backend: vllm     # the model under test: the production model

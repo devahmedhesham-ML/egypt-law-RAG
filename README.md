@@ -19,7 +19,7 @@ A: … twenty-one years completed in accordance with the Gregorian calendar. [Ar
 [Repository layout](#repository-layout) · [Development setup](#development-setup-wsl-ubuntu--cuda) · details:
 [corpus](#corpus-and-index), [LLM](#llm-inference), [evaluation & MLflow](#evaluation-set-and-chunking-experiments-mlflow),
 [serving](#serving-bentoml-streaming-load-test-canary), [CI/CD](#cicd-github-actions), [tracing](#tracing-langfuse),
-[console](#test-console), [data](#data) · [Project history](#project-history)
+[console](#test-console), [data](#data), [optimization](#optimization-awq-and-the-distilled-re-ranker), [monitoring](#monitoring-ragas-grafana-and-the-alert) · [Session changelog](#session-changelog)
 
 ## At a glance
 
@@ -28,31 +28,45 @@ A: … twenty-one years completed in accordance with the Gregorian calendar. [Ar
 | Corpus | Egyptian Civil Code (Law 131 of 1948), official bilingual PDF → **1,149 articles** (1,093 in force, 56 repealed), Arabic + English, with the part/book/chapter/section hierarchy |
 | Retrieval | One bilingual chunk per article, embedded with **Qwen/Qwen3-Embedding-0.6B**, stored in **Chroma**; articles named in the question ("Article 505", "المادة 801") are looked up directly and put first; top 5 whole articles go to the model |
 | Generation | **Qwen/Qwen2.5-7B-Instruct-AWQ served by vLLM**; answers only from the retrieved articles, cites them as `[Article N]`, declines when they don't cover the question; a citation check keeps only articles that were actually retrieved |
-| Quality | On 58 in-scope evaluation questions: right article ranked first **74%**, in the top 5 **93%**; RAGAS faithfulness **0.79–0.81** (CI gate: ≥ 0.75) |
+| Quality | RAGAS on 58 in-scope questions: faithfulness **0.813**, answer relevancy **0.594**, context precision **0.799**, context recall **0.948**; right article ranked first **74%**, in the top 5 **93%** (CI gate: faithfulness ≥ 0.75) |
 | Serving | FastAPI (Docker, port 8000) and BentoML (port 3000), async, with token streaming; 50 concurrent users: p95 **12 s**, 0 failures, on one RTX 4070 Ti SUPER |
-| MLOps | DVC (data + pipeline, public S3 remote), MLflow (experiments + Model Registry), GitHub Actions (lint → test → index → image → quality gate), Langfuse (tracing), Locust, canary rollout |
+| MLOps | DVC (data + pipeline, public S3 remote), MLflow (experiments, Model Registry, RAGAS trend), GitHub Actions (lint → test → index → image → quality gate), Langfuse (tracing + RAGAS scores per trace), Grafana (faithfulness panel, alert < 0.80), Locust, canary rollout |
+| Optimization | Qwen2.5-7B served as the official **AWQ 4-bit** build (5.6 GB instead of ~15 GB); a **re-ranker distilled** from Qwen3-Reranker-4B into 0.6B: right article first **74% → 86%** at 0.12 s per question on the GPU ([results](#optimization-awq-and-the-distilled-re-ranker)) |
 
 ## Architecture
 
+All five sessions in one picture (M1–M5 are the course modules; [session changelog](#session-changelog)):
+
 ```mermaid
 flowchart LR
-  subgraph offline["Offline: DVC pipeline (dvc repro)"]
+  subgraph M2d["M2 · Data (DVC, dvc repro)"]
     PDF["Civil Code PDF<br/>DVC · public S3"] --> BUILD["rag.corpus.build<br/>bilingual extraction + checks"]
     BUILD --> JSON["articles.json<br/>1,149 articles"]
     JSON --> INGEST["rag.ingest<br/>Qwen3-Embedding-0.6B"]
     INGEST --> CHROMA[("Chroma index<br/>1 chunk per article")]
   end
-  subgraph online["Online: answering a question"]
-    USER["Client<br/>curl · test console"] --> API["FastAPI :8000 · BentoML :3000<br/>async /ask · streaming"]
-    API --> RET["Retrieve top 5<br/>named articles first"]
+  subgraph M13["M1 + M3 · Answering a question"]
+    USER["Client<br/>curl · test console · Locust"] --> API["FastAPI :8000 (Docker) · BentoML :3000<br/>async /ask · streaming · canary (nginx)"]
+    API --> RET["Retrieve top 10<br/>named articles first"]
+    RET --> RR["M4 · distilled re-ranker<br/>Qwen3-Reranker-4B → 0.6B (RAG_RERANK)"]
+    RR --> TOP5["top 5 articles"]
     RET --> CHROMA
-    RET --> LLM["vLLM :8001<br/>Qwen2.5-7B-Instruct-AWQ"]
+    TOP5 --> LLM["vLLM :8001 · Qwen2.5-7B-Instruct-AWQ (4-bit)<br/>or Bedrock gpt-oss-120b (LLM_BACKEND)"]
     LLM --> CHECK["Citation check<br/>sources = cited ∩ retrieved"]
     CHECK --> USER
   end
-  API -. "traces + scores" .-> LF["Langfuse"]
-  EVAL["Experiments · quality gate<br/>RAGAS faithfulness"] -. "runs" .-> MLF["MLflow + Model Registry"]
-  CI["GitHub Actions"] -. "image" .-> GHCR["GHCR"]
+  subgraph M2t["M2 · Tracking and CI"]
+    EXP["Chunking experiments"] --> MLF["MLflow: runs, Registry,<br/>RAGAS trend (experiment ragas)"]
+    CI["GitHub Actions: lint → test → index<br/>→ image → faithfulness gate (GPU runner)"] --> GHCR["GHCR images"]
+  end
+  subgraph M5["M5 · Monitoring"]
+    RAGAS["RAGAS: faithfulness, relevancy,<br/>context precision, recall"] --> PUSH["Pushgateway"] --> PROM["Prometheus"]
+    PROM --> GRAF["Grafana panel<br/>alert: faithfulness < 0.80"] --> ALERT["alert receiver"]
+  end
+  API -. "every request: trace + scores" .-> LF["Langfuse (cloud)"]
+  RAGAS -. "scores on each trace" .-> LF
+  RAGAS -. "runs" .-> MLF
+  LLM -. "/metrics" .-> PROM
 ```
 
 The API, BentoML, the experiments and the CI gate all go through the same code path,
@@ -198,6 +212,8 @@ Set these in `.env` (compose reads it if present) or on the command line:
 
 | Variable | Default | What it does |
 |---|---|---|
+| `RAG_RERANK` | `false` (params.yaml `retrieval.rerank`) | `true` re-ranks the top 10 with the distilled re-ranker before the top 5 go to the model; only where a GPU is available (seconds per question on the CPU-only API image) |
+| `PUSHGATEWAY_URL` | unset | RAGAS runs push their means here (`http://localhost:9091` with `deploy/monitoring`) |
 | `LLM_BACKEND` | `vllm` | `vllm` (main) or `bedrock` (optional; start only `api`, see [Bedrock instead of vLLM](#no-suitable-gpu-use-bedrock-instead-of-vllm)) |
 | `API_VLLM_URL` | `http://vllm:8001/v1` | where the API container finds vLLM; a vLLM on the host: `http://host.docker.internal:8001/v1` (`VLLM_BASE_URL` in `.env` is for running outside Docker and is ignored by compose) |
 | `VLLM_IMAGE` | `ghcr.io/devahmedhesham-ml/egypt-law-rag-vllm:0.30.0` | the vLLM server image; `vllm/vllm-openai:v0.30.0` for the official one (21.6 GB) |
@@ -259,9 +275,9 @@ Handlers are async: retrieval runs in a worker thread and the call to vLLM is aw
 | R05 | DVC | ✅ | [dvc.yaml](dvc.yaml), [dvc.lock](dvc.lock): `git checkout` + `dvc pull` + `dvc repro` (public remote) |
 | R06 | GitHub Actions CI/CD | ✅ | [.github/workflows/ci.yml](.github/workflows/ci.yml); PR #1 merged with all checks green; image on GHCR; quality gate: [reports/faithfulness_gate.md](reports/faithfulness_gate.md) |
 | R07 | Production serving | ✅ | BentoML [src/rag/serving/service.py](src/rag/serving/service.py) + vLLM; Locust: [reports/locust_summary.md](reports/locust_summary.md), [locust_report.html](reports/locust_report.html); canary: [reports/canary_test.md](reports/canary_test.md); batch re-indexing: [reports/batch_reindex.md](reports/batch_reindex.md) |
-| R08 | Monitoring | 🟡 | Langfuse traces every request (cloud); RAGAS faithfulness in MLflow (experiments + `faithfulness-gate`). Grafana panel, alert and self-hosted Langfuse: not yet |
+| R08 | Monitoring | ✅ | RAGAS (4 metrics) in MLflow and on every evaluated Langfuse trace; [Grafana panel](#monitoring-ragas-grafana-and-the-alert) ([screenshot](reports/grafana_ragas_panel.png)); alert faithfulness < 0.80 fired and resolved: [reports/alert_test.md](reports/alert_test.md) |
 | R09 | Peer review | — | submitted outside the repository |
-| R10 | README & architecture | ✅ | this README: three-command setup, [architecture](#architecture), [project history](#project-history) |
+| R10 | README & architecture | ✅ | this README: three-command setup, [architecture](#architecture) (all five sessions), [session changelog](#session-changelog) |
 
 Progress against the handbook's checklist is tracked in [TASKS.md](TASKS.md).
 
@@ -277,7 +293,12 @@ Progress against the handbook's checklist is tracked in [TASKS.md](TASKS.md).
 - **Latency under load** is set by vLLM's generation speed on one consumer GPU (~460 tokens/s shared by all requests):
   p95 12 s at 50 concurrent users.
 - **Declining** out-of-scope questions relies on the model following the prompt; there is no similarity threshold yet.
-- **Monitoring** (R08) is partly done: Langfuse runs on Langfuse Cloud; Grafana, the alert and self-hosting are pending.
+- **Not built:** cosine drift of incoming questions and token-cost tracking (Module 5 "what you ship"), and the GPTQ
+  comparison. **Langfuse stays on Langfuse Cloud** by choice: self-hosting means six more containers (~4–5 GB RAM)
+  for no gain here; moving later only changes `LANGFUSE_BASE_URL`.
+- **The 0.80 faithfulness alert sits inside the system's own run-to-run range** (0.79–0.81 with the 7B judge), so a
+  real run can trip it without a regression ([reports/alert_test.md](reports/alert_test.md)).
+- **The re-ranker needs a GPU**: on the CPU-only API image it adds seconds per question, so it is off there.
 - **The CI quality gate** needs a self-hosted GPU runner online; with the repository variable `GPU_RUNNER=false` it is
   skipped.
 - **No authentication or rate limiting** on the API: it is meant for local and demo deployments.
@@ -293,7 +314,8 @@ src/rag/
   pipeline.py    retrieve → answer → check citations (shared by API, BentoML, evaluation)
   api/           FastAPI app (the Docker image)
   serving/       BentoML service
-  evaluation/    RAGAS faithfulness and the CI quality gate
+  evaluation/    RAGAS (faithfulness gate; all four metrics in ragas_eval)
+  rerank/        re-ranker: training data, distillation, scorer
   experiments/   chunking experiments, report, Model Registry
   ui/            local test console
   tracing.py     Langfuse configuration
@@ -302,6 +324,7 @@ tests/           pytest suite (CPU only, no network)
 reports/         evidence: curl checks, experiments, MLflow screenshots, Locust, canary, gate
 deploy/canary/   nginx canary rollout
 loadtest/        Locust load test
+deploy/monitoring/ Prometheus, Pushgateway, Grafana (dashboard + alert), alert receiver
 examples/        request bodies for curl.exe / PowerShell
 scripts/         vLLM server, smoke test, CI gate, runner setup
 Dockerfile       API image (CPU) · Dockerfile.vllm: vLLM image (GPU) · docker-compose.yml runs both
@@ -394,6 +417,12 @@ optional extra:
 |---|---|---|
 | `vllm` (main) | `vllm serve` on :8001 (`scripts/serve_vllm.sh`, `VLLM_BASE_URL`), or the compose `vllm` service | **`Qwen/Qwen2.5-7B-Instruct-AWQ`** |
 | `bedrock` (optional) | Amazon Bedrock's OpenAI-compatible endpoint (`OPENAI_BASE_URL`, key `Bedrock_API_key`) | `openai.gpt-oss-120b` |
+
+**One switch for every LLM call:** `LLM_BACKEND` (environment or `.env`) moves all of them at once: the API and
+BentoML answers, the RAGAS judge in the quality gate, `ragas_eval` and the chunking experiments, the console's
+default, the re-ranker's training questions and its teacher. Per-command flags (`--answer-backend`,
+`--judge-backend`, `--backend`) still override it, and CI sets nothing, so the gate keeps certifying Qwen2.5. The
+embedding model and the re-ranker are local models, not LLM calls; they never switch.
 
 The model answers only from the retrieved articles and cites them inline as `[Article 492]`. Every answer is checked: any cited article that was not retrieved is flagged as a hallucination.
 
@@ -516,6 +545,105 @@ canary crash with no failed request): [reports/canary_test.md](reports/canary_te
 (`ghcr.io/devahmedhesham-ml/egypt-law-rag-vllm:<vLLM version>`), only when `Dockerfile.vllm` or
 `requirements-serve.lock` changes (or on demand).
 
+## Optimization: AWQ and the distilled re-ranker
+
+**AWQ 4-bit.** vLLM serves `Qwen/Qwen2.5-7B-Instruct-AWQ`, the Qwen team's official AWQ 4-bit build: 5.6 GB of
+weights instead of ~15 GB at full precision, which is what lets a 7B model and its KV cache fit in 60% of one 16 GB
+GPU. A full-precision baseline cannot run on this GPU at all (its weights alone exceed vLLM's budget), so there is no
+measured "before" here; the quality numbers above are those of the AWQ model in production.
+
+**Re-ranker distillation** ([src/rag/rerank/](src/rag/rerank/)): retrieval puts the right article in the top 5 for
+93% of the questions but first only 74% of the time; a cross-encoder re-ranks the top 10 candidates to fix the order.
+
+```bash
+python -m rag.rerank.data                        # training questions, written by the LLM (vLLM up)
+python -m rag.rerank.distill --teacher-only      # teacher judgements (vLLM up)
+python -m rag.rerank.distill --skip-teacher      # train the student + compare (stop vLLM: the GPU trains)
+python -m rag.evaluation.ragas_eval --rerank --label reranker   # RAGAS with the re-ranker on
+```
+
+1. **Training data, generated:** 586 questions (one Arabic, one English per article) written by
+   Qwen2.5-7B from 293 of 300 sampled in-force articles. The 31 articles the evaluation set asks about were left out,
+   so the 62 test questions stay unseen by question and by article.
+2. **Teacher:** Qwen3-Reranker-4B scores each of the 10 retrieved articles per question. A first run used
+   Qwen2.5-7B-Instruct (vLLM) as the teacher instead, judging yes/no (`rerank.teacher: llm`, which also works on
+   Bedrock), while the 4B was still downloading; both are reported.
+3. **Student:** Qwen3-Reranker-0.6B, trained to reproduce the teacher's ranking (listwise KL divergence over each
+   question's candidates), 2 epochs.
+
+| Ranking of the top 10 retrieved articles (58 test questions) | hit@1 | MRR | recall@5 | Latency per question |
+|---|---|---|---|---|
+| retrieval only (no re-ranker) | 0.741 | 0.819 | 0.931 |  |
+| teacher: Qwen3-Reranker-4B | 0.948 | 0.948 | 0.948 | 0.60 s GPU |
+| teacher: Qwen2.5-7B-Instruct judging yes/no (first run) | 0.724 | 0.822 | 0.948 | 0.39 s (vLLM) |
+| base student Qwen3-Reranker-0.6B, untrained | 0.879 | 0.908 | 0.931 |  |
+| **student distilled from Qwen3-Reranker-4B** | 0.862 | 0.899 | 0.948 | 0.12 s GPU · 11.0 s CPU |
+| student distilled from the 7B judge (first run) | 0.862 | 0.905 | 0.948 | 0.14 s GPU · 12.3 s CPU |
+
+Full results, latency and training curves: [reports/reranker.md](reports/reranker.md); MLflow experiment
+`reranker`. **What it shows:** the 4B teacher ranks the right article first for 94.8% of the questions, which is the ceiling (the right article is among the 10 candidates for exactly 94.8%), against 74.1% without a re-ranker. The distilled student learned to agree with the teacher's top pick on 86% of the validation questions and is 5× faster than the teacher (0.12 s per question on the GPU), but on the test set it ties the untrained 0.6B re-ranker rather than beating it (one question fewer ranked first, better recall@5; one question is 0.017). Both small models lift the first-place rate from 74% to ~87%. The first run, distilled from the much weaker 7B yes/no judge, ended at the same first-place rate (0.862): at 586 training questions the teacher's quality did not carry over to the test set, so more training questions and harder negatives are the next step.
+
+**In production:** off by default (`retrieval.rerank: false`), because the Docker API image is CPU-only and the re-ranker takes ~11 s per question on the CPU there. Where a GPU is available, `RAG_RERANK=true` turns it on for the API and BentoML (the trained student from `data/rerank/student`, else the base 0.6B from Hugging Face).
+
+**RAGAS before vs after** (same 58 questions, same judge, `ragas_eval --rerank --label reranker`):
+
+| | faithfulness | answer relevancy | context precision | context recall | hit@1 |
+|---|---|---|---|---|---|
+| without re-ranker | 0.813 | 0.594 | 0.799 | 0.948 | 0.741 |
+| with the distilled re-ranker | 0.821 | 0.586 | **0.862** | 0.936 | **0.862** |
+
+Context precision rises by 6 points (the article that supports the answer now comes first more often); faithfulness,
+relevancy and recall move by 0.012 or less, inside the judge's run-to-run noise. Per question:
+[reports/ragas_eval_reranker.md](reports/ragas_eval_reranker.md); both runs are in MLflow (`ragas`) and Grafana.
+
+## Monitoring: RAGAS, Grafana and the alert
+
+**RAGAS, all four metrics** on the 58 in-scope questions: the production path answers each question (one
+`answer-question` trace each) and the judge scores it.
+
+```bash
+python -m rag.evaluation.ragas_eval --label baseline          # ~20 min on the test GPU; --limit 4 for a smoke run
+```
+
+| Metric | Baseline (2026-10-09) | What it measures |
+|---|---|---|
+| faithfulness | **0.813** | share of the answer's claims supported by the retrieved articles |
+| answer relevancy | **0.594** | how closely questions generated back from the answer match the asked one (Qwen3-Embedding cosine) |
+| context precision | **0.799** | whether the articles that support the reference answer are ranked first |
+| context recall | **0.948** | share of the reference answer's claims found in the retrieved articles |
+| hit@1 · MRR · recall@5 | 0.741 · 0.817 · 0.931 | exact retrieval scores from the labelled article numbers (no judge) |
+
+With the distilled re-ranker on, context precision rises to **0.862** and hit@1 to **0.862**; the other metrics stay within noise ([before vs after](#optimization-awq-and-the-distilled-re-ranker)).
+
+Per question, in Arabic and English: [reports/ragas_eval.md](reports/ragas_eval.md). The judge is Qwen2.5 on vLLM
+(`LLM_BACKEND=bedrock` or `--judge-backend bedrock` switches it). Each run is an MLflow run in the **`ragas`**
+experiment, so the trend across sessions is the metric chart over its runs, and every judged answer's four scores are
+attached to its own Langfuse trace (`faithfulness`, `answer_relevancy`, `context_precision`, `context_recall`).
+Answer relevancy is lowest because declining or very short answers generate dissimilar questions; one fix made it
+fair to Arabic: the judge is told to write its back-generated question in the answer's language (Arabic answers
+scored ~0.44 → ~0.74 on the same text).
+
+**Grafana panel and alert** (`deploy/monitoring`: Prometheus, Pushgateway, Grafana, an alert receiver; opt-in, the
+app's images are unchanged):
+
+```bash
+docker compose -f deploy/monitoring/docker-compose.yml up -d     # Grafana: http://localhost:3001 (admin / admin)
+PUSHGATEWAY_URL=http://localhost:9091 python -m rag.evaluation.ragas_eval --label baseline   # or --push-latest
+scripts/test_alert.sh                                            # end-to-end alert test (fires, then resolves)
+```
+
+![Grafana: RAGAS faithfulness panel](reports/grafana_ragas_panel.png)
+
+- **Alert threshold: faithfulness < 0.80** on the latest value of any run, evaluated every 30 s; the rule, contact
+  point and policy are provisioned from
+  [grafana/provisioning/alerting/alerting.yml](deploy/monitoring/grafana/provisioning/alerting/alerting.yml).
+- **Notification:** a webhook into the `alert-receiver` container, standing in for Slack or email
+  (`docker compose -f deploy/monitoring/docker-compose.yml logs alert-receiver`). Tested end to end: fired 19 s after
+  a low value arrived, resolved a minute after it was removed ([reports/alert_test.md](reports/alert_test.md)).
+- Prometheus also scrapes vLLM's own `/metrics` (tokens/s, requests running and waiting) for the lower panels.
+- RAGAS runs are batch jobs, hence the Pushgateway; `--push-latest` republishes the latest MLflow run of each label,
+  so a fresh Grafana can be filled without re-running anything.
+
 ## Tracing (Langfuse)
 
 Set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL` in `.env` (see `.env.example`); without them, or
@@ -568,7 +696,17 @@ aws login
 dvc push
 ```
 
-## Project history
+## Session changelog
+
+| Session (module) | Delivered |
+|---|---|
+| 1 · M1 Code, API, Docker | `src/` package with tests; corpus build (1,149 bilingual articles); FastAPI `/ask`, `/health`, 422; Docker image with the index and embedding model inside; three-command README |
+| 2 · M2 Tracking, versioning, CI | DVC pipeline on a public S3 remote; 8 chunking runs in MLflow and the `production` model in the Registry; GitHub Actions lint → test → index → image → faithfulness gate on a GPU runner (PR #1 merged green) |
+| 3 · M3 Serving | Qwen2.5-7B on vLLM as the main model; async API and BentoML with streaming; Locust at 50 users (p95 12 s); batch re-indexing; nginx canary; the project's own 8 GB vLLM image; Bedrock mode for machines without a GPU |
+| 4 · M4 Optimization | Official AWQ 4-bit model documented; re-ranker distilled from Qwen3-Reranker-4B into 0.6B on 586 generated questions (right article first 74% → 86%), plus a first run with a 7B yes/no teacher |
+| 5 · M5 Monitoring | RAGAS with all four metrics (MLflow trend, scores on every Langfuse trace); Grafana panel; faithfulness < 0.80 alert tested end to end; one switch (`LLM_BACKEND`) for every LLM call |
+
+### Daily log
 
 | Date | Milestone |
 |---|---|
@@ -579,3 +717,4 @@ dvc push
 | 2026-10-07 | Qwen2.5 on vLLM as the main model; async API with streaming; faithfulness quality gate; Model Registry; BentoML; Locust; batch re-indexing; canary; CI/CD (PR #1 merged green) |
 | 2026-10-08 | `docker compose up` with vLLM and the canary rollout verified end to end; the project's own vLLM image (8.0 GB instead of 21.6 GB), same answers and latency, faithfulness 0.79–0.80 |
 | 2026-10-09 | Bedrock mode for machines without a suitable GPU: `docker compose up api` starts the API alone, nothing on the GPU (verified) |
+| 2026-10-09 | RAGAS with all four metrics; re-ranker distillation; Grafana panel and the faithfulness alert; `LLM_BACKEND` switches every LLM call |

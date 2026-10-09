@@ -1,0 +1,56 @@
+# Monitoring (rubric R08): RAGAS metrics in Grafana, with an alert when faithfulness drops below 0.80.
+#
+#   docker compose -f deploy/monitoring/docker-compose.yml up -d
+#   PUSHGATEWAY_URL=http://localhost:9091 python -m rag.evaluation.ragas_eval      # a RAGAS run feeds the panel
+#   Grafana: http://localhost:3001 (admin / admin; anonymous viewing on) → dashboard "Egypt Law RAG: quality"
+#   Alerts:  docker compose -f deploy/monitoring/docker-compose.yml logs -f alert-receiver
+#
+# RAGAS runs are batch jobs, so they push their means to the Pushgateway, which Prometheus scrapes; Prometheus also
+# scrapes vLLM's own /metrics. Grafana's datasource, dashboard, alert rule, contact point and policy are provisioned
+# from files in grafana/provisioning, so nothing is set up by hand. Separate from the app's compose file on purpose:
+# the API and vLLM images stay as they are, and monitoring is opt-in.
+services:
+  pushgateway:
+    image: prom/pushgateway:v1.11.1
+    ports:
+      - "9091:9091"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/rag.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+
+  alert-receiver:            # stands in for Slack/email: logs every notification Grafana sends (POST /alert)
+    image: python:3.12-alpine
+    command: ["python", "-u", "/app/alert_receiver.py"]
+    volumes:
+      - ./alert_receiver.py:/app/alert_receiver.py:ro
+    ports:
+      - "9095:8080"
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:

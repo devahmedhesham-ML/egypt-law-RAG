@@ -22,6 +22,7 @@ from pathlib import Path
 import yaml
 
 from rag.evaluation.faithfulness import FaithfulnessScorer, summarize
+from rag.llm.factory import backend_for
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXPERIMENT = "faithfulness-gate"
@@ -102,8 +103,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="RAGAS faithfulness quality gate")
     ap.add_argument("--min", type=float, default=ev["gate_min_faithfulness"], help="fail below this mean")
     ap.add_argument("--questions", default=ev["gate_questions"], help="question flag to select (ci), or 'all'")
-    ap.add_argument("--answer-backend", default=ev["answer_backend"], choices=["vllm", "bedrock"])
-    ap.add_argument("--judge-backend", default=ev["judge_backend"], choices=["vllm", "bedrock"])
+    ap.add_argument("--answer-backend", default=backend_for(ev["answer_backend"]), choices=["vllm", "bedrock"])
+    ap.add_argument("--judge-backend", default=backend_for(ev["judge_backend"]), choices=["vllm", "bedrock"])
     ap.add_argument("--concurrency", type=int, default=ev["concurrency"])
     ap.add_argument("--report", type=Path, default=REPO_ROOT / "reports" / "faithfulness_gate.md")
     ap.add_argument("--no-mlflow", action="store_true")

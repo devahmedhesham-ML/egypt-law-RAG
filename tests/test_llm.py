@@ -146,7 +146,7 @@ def test_factory_builds_bedrock_from_env(monkeypatch):
 
 
 def test_factory_requires_bedrock_key(monkeypatch):
-    monkeypatch.setattr("rag.llm.factory.load_dotenv", lambda: None)
+    monkeypatch.setattr("rag.llm.factory.load_dotenv", lambda *a: None)
     monkeypatch.delenv("Bedrock_API_key", raising=False)
     with pytest.raises(ValueError, match="Bedrock_API_key"):
         get_backend(PARAMS, backend="bedrock")

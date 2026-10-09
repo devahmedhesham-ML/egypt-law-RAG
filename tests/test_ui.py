@@ -70,7 +70,7 @@ def test_built_corpus_replaces_the_sample_and_exposes_its_warnings(client, tmp_p
 def test_status_lists_planned_stages(client):
     stages = {s["id"]: s for s in client.get("/api/status").json()["stages"]}
     assert stages["retrieval"]["state"] == "planned"
-    assert stages["ragas"]["state"] == "planned"
+    assert stages["ragas"]["state"] == "working" and stages["monitoring"]["state"] == "planned"
     assert stages["citations"]["state"] == "working"
 
 

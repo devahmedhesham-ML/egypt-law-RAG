@@ -11,3 +11,7 @@ data/feedback/
 mlflow.db
 mlartifacts/
 data/experiments/
+data/rerank/*
+!data/rerank/train.jsonl
+!data/rerank/val.jsonl
+!data/rerank/summary.json

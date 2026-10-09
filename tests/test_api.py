@@ -122,21 +122,34 @@ def test_stream_rejects_empty_question():
 
 
 def test_backend_can_be_chosen_in_dot_env(monkeypatch, tmp_path):
-    import rag.pipeline
+    from rag.llm import factory
 
     (tmp_path / ".env").write_text("LLM_BACKEND=bedrock\n")
-    monkeypatch.setattr(rag.pipeline, "ENV_FILE", tmp_path / ".env")
+    monkeypatch.setattr(factory, "ENV_FILE", tmp_path / ".env")
     monkeypatch.delenv("LLM_BACKEND", raising=False)
     assert Pipeline().backend_name == "bedrock"
 
 
 def test_environment_wins_over_dot_env(monkeypatch, tmp_path):
-    import rag.pipeline
+    from rag.llm import factory
 
     (tmp_path / ".env").write_text("LLM_BACKEND=bedrock\n")
-    monkeypatch.setattr(rag.pipeline, "ENV_FILE", tmp_path / ".env")
+    monkeypatch.setattr(factory, "ENV_FILE", tmp_path / ".env")
     monkeypatch.setenv("LLM_BACKEND", "vllm")
     assert Pipeline().backend_name == "vllm"
+
+
+def test_one_switch_moves_the_evaluation_too(monkeypatch, tmp_path):
+    from rag.evaluation import gate
+    from rag.llm import factory
+
+    monkeypatch.setattr(factory, "ENV_FILE", tmp_path / ".env")  # no .env
+    monkeypatch.setenv("LLM_BACKEND", "bedrock")
+    captured = {}
+    monkeypatch.setattr(gate, "run_gate", lambda qs, **kw: captured.update(kw) or {"metrics": {}, "rows": []})
+    monkeypatch.setattr(gate, "write_report", lambda *a, **kw: None)
+    gate.main(["--no-mlflow"])
+    assert captured["answer_backend"] == captured["judge_backend"] == "bedrock"
 
 
 def test_every_response_names_the_release(monkeypatch):

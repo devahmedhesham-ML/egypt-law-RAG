@@ -1,6 +1,6 @@
 """RAGAS faithfulness: the production model answers from given articles, an LLM judge scores the answer.
 
-Both models default to Qwen2.5 on vLLM (params.yaml `evaluation`); Bedrock is an optional alternative for either.
+Both models default to Qwen2.5 on vLLM (params.yaml `evaluation`); LLM_BACKEND or the flags switch either to Bedrock.
 RAGAS asks the judge for structured output through instructor: JSON-schema mode on vLLM (guided decoding),
 tools mode on Bedrock (gpt-oss returns malformed JSON in RAGAS's default JSON mode).
 """
@@ -22,6 +22,26 @@ def article_context(article: dict) -> str:
     body = "\n".join(x for x in (article.get("text_ar") or article.get("repeal_note_ar"),
                                  article.get("text_en") or article.get("repeal_note")) if x)
     return f"[Article {article['article_number']}]\n{body}"
+
+
+def make_judge(params: dict, backend: str):
+    """(RAGAS judge LLM, its async client) for `backend`. Create it inside the event loop that uses it, and close the
+    client there: instructor tools mode on Bedrock, JSON-schema (guided decoding) on vLLM."""
+    import instructor
+    from openai import AsyncOpenAI
+    from ragas.llms.base import InstructorLLM
+
+    cfg = params[backend]
+    if backend == "bedrock":
+        client = AsyncOpenAI(api_key=os.environ["Bedrock_API_key"],
+                             base_url=os.environ.get("OPENAI_BASE_URL", cfg["base_url"]))
+        mode = instructor.Mode.TOOLS
+    else:
+        client = AsyncOpenAI(api_key="EMPTY", base_url=os.environ.get("VLLM_BASE_URL", cfg["base_url"]))
+        mode = instructor.Mode.JSON_SCHEMA
+    llm = InstructorLLM(client=instructor.from_openai(client, mode=mode), model=cfg["model"],
+                        provider="openai", max_tokens=2048, temperature=0.0)
+    return llm, client
 
 
 @dataclass(frozen=True)
@@ -57,21 +77,9 @@ class FaithfulnessScorer:
 
     def _metric(self):
         """Built per batch, so the async client never outlives its event loop."""
-        import instructor
-        from openai import AsyncOpenAI
-        from ragas.llms.base import InstructorLLM
         from ragas.metrics.collections import Faithfulness
 
-        cfg = self.params[self.judge_backend]
-        if self.judge_backend == "bedrock":
-            client = AsyncOpenAI(api_key=os.environ["Bedrock_API_key"],
-                                 base_url=os.environ.get("OPENAI_BASE_URL", cfg["base_url"]))
-            mode = instructor.Mode.TOOLS
-        else:
-            client = AsyncOpenAI(api_key="EMPTY", base_url=os.environ.get("VLLM_BASE_URL", cfg["base_url"]))
-            mode = instructor.Mode.JSON_SCHEMA
-        llm = InstructorLLM(client=instructor.from_openai(client, mode=mode), model=self.judge_model,
-                            provider="openai", max_tokens=2048, temperature=0.0)
+        llm, client = make_judge(self.params, self.judge_backend)
         return Faithfulness(llm=llm), client
 
     async def _one(self, metric, sem: asyncio.Semaphore, question: str, numbers: list[int]) -> Judged:

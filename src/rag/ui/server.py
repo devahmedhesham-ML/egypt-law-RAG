@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 
 from rag import tracing
 from rag.llm import AnswerResult, LLMBackend, LLMError, answer_stream, get_backend
-from rag.llm.factory import load_llm_params
+from rag.llm.factory import default_backend, load_llm_params
 from rag.ui import data
 from rag.ui.status import collect_status
 
@@ -111,7 +111,7 @@ def config() -> dict:
             "vllm": {"label": "vLLM (main)", "model": params["vllm"]["model"]},
             "bedrock": {"label": "Bedrock (optional)", "model": params["bedrock"]["model"]},
         },
-        "default_backend": params["backend"],
+        "default_backend": default_backend(params),
         "temperature": params["temperature"],
         "max_tokens": params["max_tokens"],
         "langfuse_url": os.environ.get("LANGFUSE_BASE_URL") or os.environ.get("LANGFUSE_HOST"),

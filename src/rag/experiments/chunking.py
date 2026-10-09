@@ -32,6 +32,7 @@ from rag.experiments.report import EXPERIMENT, build_report, latest_runs, produc
 from rag.ingest.chunks import build_chunks, chunks_per_article, query_text
 from rag.ingest.embed import GpuEmbedder
 from rag.ingest.store import best_per_article, collection_name, search, write_index
+from rag.llm.factory import backend_for
 from rag.retrieval import merge_hits, numbers_in_question
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -218,8 +219,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--faithfulness", action="store_true", help="also answer and score RAGAS faithfulness")
     ap.add_argument("--faithfulness-only", action="store_true",
                     help="answer + judge from the rankings in each config's latest run (no re-embedding)")
-    ap.add_argument("--answer-backend", default=ev["answer_backend"], choices=["vllm", "bedrock"])
-    ap.add_argument("--judge-backend", default=ev["judge_backend"], choices=["vllm", "bedrock"])
+    ap.add_argument("--answer-backend", default=backend_for(ev["answer_backend"]), choices=["vllm", "bedrock"])
+    ap.add_argument("--judge-backend", default=backend_for(ev["judge_backend"]), choices=["vllm", "bedrock"])
     ap.add_argument("--concurrency", type=int, default=ev["concurrency"], help="parallel answer/judge requests")
     ap.add_argument("--report", default="reports/chunking_experiments.md")
     ap.add_argument("--report-only", action="store_true", help="rebuild the report from MLflow without running anything")

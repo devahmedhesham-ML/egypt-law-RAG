@@ -13,16 +13,29 @@ from rag.llm.base import LLMBackend
 from rag.llm.openai_compat import OpenAICompatBackend
 
 PARAMS_PATH = Path(__file__).resolve().parents[3] / "params.yaml"
+ENV_FILE = PARAMS_PATH.parent / ".env"
 
 
 def load_llm_params(path: Path = PARAMS_PATH) -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8"))["llm"]
 
 
+def backend_for(configured: str) -> str:
+    """The one switch: LLM_BACKEND (environment or .env) overrides a configured backend, so setting it moves every
+    LLM call (answers, RAGAS judge, question generation) to the same backend. Unset, the configured one is used."""
+    load_dotenv(ENV_FILE)
+    return os.environ.get("LLM_BACKEND") or configured
+
+
+def default_backend(params: dict[str, Any] | None = None) -> str:
+    """LLM_BACKEND > params.yaml llm.backend."""
+    return backend_for((params or load_llm_params())["backend"])
+
+
 def get_backend(params: dict[str, Any] | None = None, backend: str | None = None) -> LLMBackend:
-    load_dotenv()
+    load_dotenv(ENV_FILE)
     params = params or load_llm_params()
-    name = backend or params["backend"]
+    name = backend or default_backend(params)
     if name == "bedrock":
         key = os.environ.get("Bedrock_API_key")
         if not key:

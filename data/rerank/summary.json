@@ -1,0 +1,10 @@
+{
+  "articles": 300,
+  "articles_with_questions": 293,
+  "questions": 586,
+  "val_articles": 29,
+  "held_out_eval_articles": 31,
+  "positive_retrieved_at_k": 0.9112627986348123,
+  "generator": "vllm:Qwen/Qwen2.5-7B-Instruct-AWQ",
+  "candidates": 10
+}

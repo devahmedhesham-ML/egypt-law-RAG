@@ -65,11 +65,11 @@ The API, BentoML, the experiments and the CI gate all go through the same code p
 | | |
 |---|---|
 | Docker | Docker Engine + Compose **v2.24 or newer** (Linux), or Docker Desktop with the WSL 2 backend (Windows) |
-| GPU | NVIDIA GPU, **16 GB VRAM recommended** (tested on an RTX 4070 Ti SUPER 16 GB; vLLM reserves 60% of it) |
+| GPU | NVIDIA GPU, **16 GB VRAM recommended** (tested on an RTX 4070 Ti SUPER 16 GB; vLLM reserves 60% of it). No suitable GPU: [use Bedrock instead](#no-suitable-gpu-use-bedrock-instead-of-vllm) |
 | GPU in Docker | NVIDIA driver **580 or newer** (CUDA 13); on Linux also the NVIDIA Container Toolkit. Check: `docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi` must list your GPU |
 | Disk | about **20 GB free** (vLLM image 8.0 GB, API image 2.6 GB, model 5.6 GB): see [What's in the images](#whats-in-the-images) |
 | Memory | 16 GB RAM (the two containers use ~5 GB) |
-| Network | only for the first start (images, corpus and model downloads); no API keys needed |
+| Network | only for the first start (images, corpus and model downloads); no API keys needed (Bedrock mode: a Bedrock API key) |
 
 ### Three commands
 
@@ -91,6 +91,33 @@ docker compose up --build    # vLLM (Qwen2.5-7B on the GPU) + the API on http://
 **It is ready when** `docker compose ps` shows both services `healthy` and `curl localhost:8000/health` returns
 `{"status":"healthy","documents_indexed":1149}`. Until vLLM is up, `/health` already works and `/ask` answers 503 with
 the reason.
+
+### No suitable GPU: use Bedrock instead of vLLM
+
+Qwen2.5 needs an NVIDIA GPU (16 GB recommended). Without one, the API can answer with the optional Bedrock backend
+(`openai.gpt-oss-120b` on Amazon Bedrock's OpenAI-compatible endpoint), and vLLM is not started at all: nothing is
+loaded on the GPU, and neither the vLLM image (3.9 GB) nor the Qwen model (5.6 GB) is downloaded. Retrieval is the same
+(the embedding model runs on the CPU inside the API image). You need a Bedrock API key (AWS console → Amazon Bedrock →
+API keys) for an account where `openai.gpt-oss-120b` is available in the endpoint's region.
+
+```bash
+cp .env.example .env
+# in .env:  LLM_BACKEND=bedrock
+#           Bedrock_API_key=<your key>
+#           OPENAI_BASE_URL=https://bedrock-mantle.<region>.api.aws/v1    (only if not eu-north-1)
+docker compose up --build api    # the API alone: no vLLM container, nothing on the GPU
+```
+
+- **Start only `api`.** A plain `docker compose up` also starts the vLLM service, which loads Qwen onto the GPU (or
+  fails without one), whatever `LLM_BACKEND` says.
+- `LLM_BACKEND=bedrock docker compose up --build api` does the same without editing `.env`.
+- After changing `.env`, run `docker compose up -d api` again. `docker compose restart api` keeps the old settings.
+- The checks below work unchanged. The answers come from gpt-oss-120b, so their wording differs from Qwen's, and the
+  quality figures in this README (measured with Qwen2.5) do not apply to them. Each question is a billed request to
+  your AWS account.
+- Back to vLLM: remove `LLM_BACKEND` from `.env` (or set it to `vllm`), then `docker compose down && docker compose up`.
+- Outside Docker, the same `.env` setting applies to `python -m rag.api` and BentoML (in the test console, pick Bedrock
+  in the backend menu); don't start `scripts/serve_vllm.sh`.
 
 ### Try it
 
@@ -171,7 +198,7 @@ Set these in `.env` (compose reads it if present) or on the command line:
 
 | Variable | Default | What it does |
 |---|---|---|
-| `LLM_BACKEND` | `vllm` | `vllm` (main) or `bedrock` (optional) |
+| `LLM_BACKEND` | `vllm` | `vllm` (main) or `bedrock` (optional; start only `api`, see [Bedrock instead of vLLM](#no-suitable-gpu-use-bedrock-instead-of-vllm)) |
 | `API_VLLM_URL` | `http://vllm:8001/v1` | where the API container finds vLLM; a vLLM on the host: `http://host.docker.internal:8001/v1` (`VLLM_BASE_URL` in `.env` is for running outside Docker and is ignored by compose) |
 | `VLLM_IMAGE` | `ghcr.io/devahmedhesham-ml/egypt-law-rag-vllm:0.30.0` | the vLLM server image; `vllm/vllm-openai:v0.30.0` for the official one (21.6 GB) |
 | `HF_CACHE` | `hf-cache` (volume) | where the `vllm` service keeps the model; a host directory keeps it outside Docker |
@@ -188,16 +215,17 @@ lower the first on a GPU that is shared or smaller than 16 GB.
 
 ```bash
 API_VLLM_URL=http://host.docker.internal:8001/v1 docker compose up api    # vLLM already running on the host (scripts/serve_vllm.sh)
-LLM_BACKEND=bedrock docker compose up api                                 # no GPU: optional Bedrock backend, key in .env
+LLM_BACKEND=bedrock docker compose up --build api                         # no GPU: Bedrock, vLLM not started (key in .env)
 ```
 
 ## Troubleshooting
 
 | Symptom | Cause and fix |
 |---|---|
-| `could not select device driver "" with capabilities: [[gpu]]` / vLLM exits at start | Docker cannot see the GPU. Install the NVIDIA Container Toolkit (Linux) or use Docker Desktop with WSL 2 (Windows), then check with the `nvidia/cuda … nvidia-smi` command above |
+| `could not select device driver "" with capabilities: [[gpu]]` / vLLM exits at start | Docker cannot see the GPU. Install the NVIDIA Container Toolkit (Linux) or use Docker Desktop with WSL 2 (Windows), then check with the `nvidia/cuda … nvidia-smi` command above. No usable GPU: [use Bedrock](#no-suitable-gpu-use-bedrock-instead-of-vllm) |
 | vLLM logs `CUDA out of memory` | other programs use the GPU; free it, or lower `--gpu-memory-utilization` in `docker-compose.yml` |
 | `/ask` returns 503 `LLM unavailable: vllm: server not reachable` | vLLM is still loading (wait until `docker compose ps` shows it healthy) or stopped (`docker compose logs vllm`) |
+| `/ask` returns 503 `Bedrock_API_key is not set` or `invalid or expired Bedrock_API_key` | set a valid key in `.env`, then `docker compose up -d api` |
 | `/health` returns 503 `unhealthy` | the image has no index; rebuild it (`docker compose build api`) or use the prebuilt image |
 | `port is already allocated` (8000 or 8001) | another server uses the port; stop it, or change the `ports:` mapping in `docker-compose.yml` |
 | the first start takes long | it downloads ~11 GB (vLLM image, API image, model); later starts take ~90 s |
@@ -550,3 +578,4 @@ dvc push
 | 2026-09-30 | Experiment report with cost, speed and hardware; evaluation dataset documented |
 | 2026-10-07 | Qwen2.5 on vLLM as the main model; async API with streaming; faithfulness quality gate; Model Registry; BentoML; Locust; batch re-indexing; canary; CI/CD (PR #1 merged green) |
 | 2026-10-08 | `docker compose up` with vLLM and the canary rollout verified end to end; the project's own vLLM image (8.0 GB instead of 21.6 GB), same answers and latency, faithfulness 0.79–0.80 |
+| 2026-10-09 | Bedrock mode for machines without a suitable GPU: `docker compose up api` starts the API alone, nothing on the GPU (verified) |

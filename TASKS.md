@@ -32,6 +32,7 @@ Optimization items come from the "What you ship" table on p. 66, because the p. 
 - [x] Quality gate passes locally: faithfulness 0.787 ≥ 0.75 on the 20 CI questions
 - [x] `docker-compose.yml` starts vLLM + API: verified (both healthy in 80 s; curl checks pass with Qwen2.5 in the container, streaming works)
 - [x] Own vLLM image (`Dockerfile.vllm`, 8.0 GB instead of the official 21.6 GB): only `requirements-serve.lock`, gcc kept (Triton needs it), video/audio packages removed; same curl answers, faithfulness 0.804 / 0.792, Locust p95 12 s; built and pushed by `.github/workflows/vllm-image.yml` (public at `ghcr.io/devahmedhesham-ml/egypt-law-rag-vllm:0.30.0`, 3.89 GB download; CI gate 0.804 against it); fresh clone + `docker compose up --build` verified with the GHCR image (curl answers identical)
+- [x] Bedrock mode for reviewers without a suitable GPU: `LLM_BACKEND=bedrock docker compose up --build api` starts the API alone (no vLLM container, nothing on the GPU; verified with cited AR/EN answers); `LLM_BACKEND` in `.env` now also works outside Docker
 
 ## Done: API, Docker, evaluation set, MLflow chunking experiments (R02–R04)
 - [x] vLLM moved to port 8001 so the API owns 8000

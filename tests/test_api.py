@@ -121,6 +121,24 @@ def test_stream_rejects_empty_question():
     assert client.post("/ask/stream", json={"question": " "}).status_code == 422
 
 
+def test_backend_can_be_chosen_in_dot_env(monkeypatch, tmp_path):
+    import rag.pipeline
+
+    (tmp_path / ".env").write_text("LLM_BACKEND=bedrock\n")
+    monkeypatch.setattr(rag.pipeline, "ENV_FILE", tmp_path / ".env")
+    monkeypatch.delenv("LLM_BACKEND", raising=False)
+    assert Pipeline().backend_name == "bedrock"
+
+
+def test_environment_wins_over_dot_env(monkeypatch, tmp_path):
+    import rag.pipeline
+
+    (tmp_path / ".env").write_text("LLM_BACKEND=bedrock\n")
+    monkeypatch.setattr(rag.pipeline, "ENV_FILE", tmp_path / ".env")
+    monkeypatch.setenv("LLM_BACKEND", "vllm")
+    assert Pipeline().backend_name == "vllm"
+
+
 def test_every_response_names_the_release(monkeypatch):
     monkeypatch.setenv("APP_RELEASE", "canary")
     client, _ = make_client()

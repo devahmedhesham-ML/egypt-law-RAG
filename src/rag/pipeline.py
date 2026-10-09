@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+from dotenv import load_dotenv
 from langfuse import propagate_attributes
 
 from rag import tracing
@@ -23,6 +24,7 @@ from rag.llm.factory import load_llm_params
 from rag.retrieval import Retrieval, Retriever
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+ENV_FILE = REPO_ROOT / ".env"
 
 
 def load_params() -> dict:
@@ -60,7 +62,8 @@ class Pipeline:
         self._retriever = retriever
         self._articles = articles
         self._backend = backend
-        # LLM_BACKEND (env) > params.yaml llm.backend
+        load_dotenv(ENV_FILE)  # LLM_BACKEND may be set in .env (outside Docker); the real environment still wins
+        # LLM_BACKEND (env or .env) > params.yaml llm.backend
         self.backend_name = backend_name or os.environ.get("LLM_BACKEND") or self.llm_params["backend"]
 
     @property

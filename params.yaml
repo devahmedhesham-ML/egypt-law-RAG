@@ -6,7 +6,7 @@ llm:
     model: openai.gpt-oss-120b
     base_url: https://bedrock-mantle.eu-north-1.api.aws/v1   # overridden by OPENAI_BASE_URL
   vllm:
-    model: Qwen/Qwen2.5-7B-Instruct-AWQ
+    model: Qwen/Qwen2.5-7B-Instruct-AWQ   # VLLM_MODEL overrides; small GPUs: Qwen/Qwen2.5-1.5B-Instruct-AWQ
     base_url: http://localhost:8001/v1                        # overridden by VLLM_BASE_URL (8000 is the API)
 
 retrieval:

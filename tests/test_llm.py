@@ -161,3 +161,12 @@ def test_llm_result_is_immutable():
     r = LLMResult("t", "m", 1, 2, 0.1, "stop")
     with pytest.raises(AttributeError):
         r.text = "x"  # type: ignore[misc]
+
+
+def test_vllm_model_env_chooses_the_served_model(monkeypatch, tmp_path):
+    from rag.llm import factory
+
+    monkeypatch.setattr(factory, "ENV_FILE", tmp_path / ".env")
+    monkeypatch.setenv("VLLM_MODEL", "Qwen/Qwen2.5-1.5B-Instruct-AWQ")
+    assert factory.load_llm_params()["vllm"]["model"] == "Qwen/Qwen2.5-1.5B-Instruct-AWQ"
+    assert get_backend(backend="vllm").model == "Qwen/Qwen2.5-1.5B-Instruct-AWQ"

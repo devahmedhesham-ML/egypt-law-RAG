@@ -79,7 +79,7 @@ The API, BentoML, the experiments and the CI gate all go through the same code p
 | | |
 |---|---|
 | Docker | Docker Engine + Compose **v2.24 or newer** (Linux), or Docker Desktop with the WSL 2 backend (Windows) |
-| GPU | NVIDIA GPU, **16 GB VRAM recommended** (tested on an RTX 4070 Ti SUPER 16 GB; vLLM reserves 60% of it). No suitable GPU: [use Bedrock instead](#no-suitable-gpu-use-bedrock-instead-of-vllm) |
+| GPU | NVIDIA GPU, **16 GB VRAM recommended** (tested on an RTX 4070 Ti SUPER 16 GB; vLLM reserves 60% of it). Smaller GPU (~2 GB free): [the 1.5B model](#smaller-gpu-2-gb-the-15b-model). No suitable GPU: [use Bedrock instead](#no-suitable-gpu-use-bedrock-instead-of-vllm) |
 | GPU in Docker | NVIDIA driver **580 or newer** (CUDA 13); on Linux also the NVIDIA Container Toolkit. Check: `docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi` must list your GPU |
 | Disk | about **20 GB free** (vLLM image 8.0 GB, API image 2.6 GB, model 5.6 GB): see [What's in the images](#whats-in-the-images) |
 | Memory | 16 GB RAM (the two containers use ~5 GB) |
@@ -105,6 +105,29 @@ docker compose up --build    # vLLM (Qwen2.5-7B on the GPU) + the API on http://
 **It is ready when** `docker compose ps` shows both services `healthy` and `curl localhost:8000/health` returns
 `{"status":"healthy","documents_indexed":1149}`. Until vLLM is up, `/health` already works and `/ask` answers 503 with
 the reason.
+
+### Smaller GPU (~2 GB): the 1.5B model
+
+The default model, Qwen2.5-7B, needs a 16 GB GPU. On a smaller card, run **Qwen2.5-1.5B-Instruct-AWQ** (the same
+family, official 4-bit build, 1.6 GB download) with two lines in `.env` (they are in `.env.example`, commented):
+
+```bash
+VLLM_MODEL=Qwen/Qwen2.5-1.5B-Instruct-AWQ
+VLLM_MEMORY_ARGS=--kv-cache-memory 201326592 --max-model-len 6144 --enforce-eager --max-num-seqs 4 --max-num-batched-tokens 2048
+```
+
+then the same `docker compose up --build` (after a change: `docker compose up -d --build`). Measured on the test
+machine: vLLM uses **1.7 GB of GPU memory** in total (weights 1.1 GB, a 192 MB KV cache that holds one full
+6,144-token request, no CUDA graphs), is ready in ~60 s, and answers in 0.3–1.2 s.
+
+- One setting moves everything: compose serves the chosen model, the API asks for it, and the evaluation, the judge
+  and `scripts/serve_vllm.sh` (outside Docker) read the same `VLLM_MODEL` / `VLLM_MEMORY_ARGS`.
+- **Expect weaker answers.** On the 20 CI questions it scores faithfulness **0.683**, below the 0.75 gate (judged by
+  Bedrock's gpt-oss-120b); it sometimes cites without the `[Article N]` format (so no sources come back) or
+  answers an out-of-scope question from general knowledge instead of declining. It is there so the system runs on
+  a small machine; the quality numbers in this README are the 7B's, and CI keeps gating the 7B.
+- Back to the 7B: remove the two lines and `docker compose up -d`.
+- No GPU at all: [Bedrock](#no-suitable-gpu-use-bedrock-instead-of-vllm).
 
 ### No suitable GPU: use Bedrock instead of vLLM
 
@@ -216,6 +239,8 @@ Set these in `.env` (compose reads it if present) or on the command line:
 | `PUSHGATEWAY_URL` | unset | RAGAS runs push their means here (`http://localhost:9091` with `deploy/monitoring`) |
 | `LLM_BACKEND` | `vllm` | `vllm` (main) or `bedrock` (optional; start only `api`, see [Bedrock instead of vLLM](#no-suitable-gpu-use-bedrock-instead-of-vllm)) |
 | `API_VLLM_URL` | `http://vllm:8001/v1` | where the API container finds vLLM; a vLLM on the host: `http://host.docker.internal:8001/v1` (`VLLM_BASE_URL` in `.env` is for running outside Docker and is ignored by compose) |
+| `VLLM_MODEL` | `Qwen/Qwen2.5-7B-Instruct-AWQ` | the model vLLM serves and the app asks for; `Qwen/Qwen2.5-1.5B-Instruct-AWQ` for ~2 GB GPUs ([details](#smaller-gpu-2-gb-the-15b-model)) |
+| `VLLM_MEMORY_ARGS` | `--gpu-memory-utilization 0.60 --max-model-len 8192` | vLLM's memory flags; the 1.5B preset keeps it under 2 GB |
 | `VLLM_IMAGE` | `ghcr.io/devahmedhesham-ml/egypt-law-rag-vllm:0.30.0` | the vLLM server image; `vllm/vllm-openai:v0.30.0` for the official one (21.6 GB) |
 | `HF_CACHE` | `hf-cache` (volume) | where the `vllm` service keeps the model; a host directory keeps it outside Docker |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` | unset | optional tracing; without them tracing is off |
@@ -224,8 +249,8 @@ Set these in `.env` (compose reads it if present) or on the command line:
 | `RAG_WARMUP` | `true` | load the embedding model at start instead of on the first question |
 | `GIT_SHA` (build argument) | `unknown` | commit recorded in the image as its release |
 
-The vLLM flags (`--gpu-memory-utilization 0.60 --max-model-len 8192`) are in [docker-compose.yml](docker-compose.yml);
-lower the first on a GPU that is shared or smaller than 16 GB.
+The vLLM flags default to `--gpu-memory-utilization 0.60 --max-model-len 8192` ([docker-compose.yml](docker-compose.yml));
+set `VLLM_MEMORY_ARGS` to change them, or switch to [the 1.5B model](#smaller-gpu-2-gb-the-15b-model) on a smaller GPU.
 
 ### Variants
 
@@ -239,7 +264,7 @@ LLM_BACKEND=bedrock docker compose up --build api                         # no G
 | Symptom | Cause and fix |
 |---|---|
 | `could not select device driver "" with capabilities: [[gpu]]` / vLLM exits at start | Docker cannot see the GPU. Install the NVIDIA Container Toolkit (Linux) or use Docker Desktop with WSL 2 (Windows), then check with the `nvidia/cuda … nvidia-smi` command above. No usable GPU: [use Bedrock](#no-suitable-gpu-use-bedrock-instead-of-vllm) |
-| vLLM logs `CUDA out of memory` | other programs use the GPU; free it, or lower `--gpu-memory-utilization` in `docker-compose.yml` |
+| vLLM logs `CUDA out of memory` | other programs use the GPU, or it is smaller than 16 GB: free it, use [the 1.5B model](#smaller-gpu-2-gb-the-15b-model) (1.7 GB), or [Bedrock](#no-suitable-gpu-use-bedrock-instead-of-vllm) |
 | `/ask` returns 503 `LLM unavailable: vllm: server not reachable` | vLLM is still loading (wait until `docker compose ps` shows it healthy) or stopped (`docker compose logs vllm`) |
 | `/ask` returns 503 `Bedrock_API_key is not set` or `invalid or expired Bedrock_API_key` | set a valid key in `.env`, then `docker compose up -d api` |
 | `/health` returns 503 `unhealthy` | the image has no index; rebuild it (`docker compose build api`) or use the prebuilt image |
@@ -718,3 +743,4 @@ dvc push
 | 2026-10-08 | `docker compose up` with vLLM and the canary rollout verified end to end; the project's own vLLM image (8.0 GB instead of 21.6 GB), same answers and latency, faithfulness 0.79–0.80 |
 | 2026-10-09 | Bedrock mode for machines without a suitable GPU: `docker compose up api` starts the API alone, nothing on the GPU (verified) |
 | 2026-10-09 | RAGAS with all four metrics; re-ranker distillation; Grafana panel and the faithfulness alert; `LLM_BACKEND` switches every LLM call |
+| 2026-10-10 | Model choice for smaller machines: `VLLM_MODEL` selects Qwen2.5-1.5B-Instruct-AWQ, measured at 1.7 GB of GPU memory |

@@ -17,7 +17,13 @@ ENV_FILE = PARAMS_PATH.parent / ".env"
 
 
 def load_llm_params(path: Path = PARAMS_PATH) -> dict[str, Any]:
-    return yaml.safe_load(path.read_text(encoding="utf-8"))["llm"]
+    """params.yaml `llm`, with VLLM_MODEL (environment or .env) choosing which model vLLM serves, e.g. the small
+    Qwen/Qwen2.5-1.5B-Instruct-AWQ for GPUs with ~2 GB free. Every vLLM call (answers, judge, teacher) follows it."""
+    params = yaml.safe_load(path.read_text(encoding="utf-8"))["llm"]
+    load_dotenv(ENV_FILE)
+    if os.environ.get("VLLM_MODEL"):
+        params["vllm"]["model"] = os.environ["VLLM_MODEL"]
+    return params
 
 
 def backend_for(configured: str) -> str:

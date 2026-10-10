@@ -11,9 +11,10 @@ services:
     # official image's 21.6 GB. Published by .github/workflows/vllm-image.yml and pulled, not built, by compose.
     # Tested on an Ada GPU; VLLM_IMAGE=vllm/vllm-openai:v0.30.0 switches to the official image (same command).
     image: ${VLLM_IMAGE:-ghcr.io/devahmedhesham-ml/egypt-law-rag-vllm:0.30.0}
+    # Which model and how much GPU: VLLM_MODEL / VLLM_MEMORY_ARGS in .env (small GPUs: see .env.example).
     command: >-
-      Qwen/Qwen2.5-7B-Instruct-AWQ --port 8001
-      --gpu-memory-utilization 0.60 --max-model-len 8192
+      ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ} --port 8001
+      ${VLLM_MEMORY_ARGS:---gpu-memory-utilization 0.60 --max-model-len 8192}
     volumes:
       - ${HF_CACHE:-hf-cache}:/root/.cache/huggingface
     ipc: host
@@ -49,6 +50,7 @@ services:
       LLM_BACKEND: ${LLM_BACKEND:-vllm}
       # Not ${VLLM_BASE_URL}: .env sets that one for running outside Docker (localhost), wrong inside the container.
       VLLM_BASE_URL: ${API_VLLM_URL:-http://vllm:8001/v1}
+      VLLM_MODEL: ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}   # the API asks vLLM for the model it serves
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # No depends_on on vllm: the API starts without it (/ask answers 503 until vLLM is up), and `docker compose up api`
